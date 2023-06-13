@@ -83,7 +83,21 @@ API состоит из двух частей - публичного (досту
 ##### Приватное API
 
 * POST /api/private/create_project - создание проекта
-
+* GET /api/private/project/{id}
+* POST /api/private/project/{id}/accept_bid 
+* POST /api/private/project/{id}/update
+* POST /api/private/project/{id}/delete
+* POST /api/private/project/{id}/cancel_work
+* POST /api/private/project/{id}/rate_work
+* POST /api/private/project/{id}/rate_owner
+* POST /api/private/user/{id}/request_mentorship
+* POST /api/private/user/{id}/accept_mentorship
+* POST /api/private/user/{id}/cancel_mentorship
+* POST /api/private/user/{id}/rate_mentor
+* POST /api/private/user/{id}/rate_student
+* POST /api/private/user/{id}/account
+* POST /api/private/user/{id}/account/withdraw
+* POST /api/private/user/{id}/account/history
 
 
 
