@@ -70,10 +70,10 @@ API состоит из двух частей - публичного (досту
 
 ##### Публичное API
 
+* GET /api/public/config - получение общих параметров
 * GET /api/public/user_list - получение списка пользователей с возможностью сортировки и фильтрации
 * GET /api/public/user/{id} - получение информации о данном пользователе
 * GET /api/public/user/{id}/history - получение истории данного пользователя (участие в проектах и менторстве) с возможностью фильтрации и сортировки
-* POST /api/public/register - регистрация нового пользователя
 * GET /api/public/project_list - получение списка проектов с возможностью сортировки и фильтрации
 * GET /api/public/project/{id}- получение информации о данном проекте
 
@@ -82,6 +82,7 @@ API состоит из двух частей - публичного (досту
 
 ##### Приватное API
 
+* POST /api/public/register - регистрация нового пользователя
 * POST /api/private/create_project - создание проекта
 * GET /api/private/project/{id}
 * POST /api/private/project/{id}/accept_bid 
@@ -97,7 +98,7 @@ API состоит из двух частей - публичного (досту
 * POST /api/private/user/{id}/rate_student
 * POST /api/private/user/{id}/account
 * POST /api/private/user/{id}/account/withdraw
-* POST /api/private/user/{id}/account/history
+* GET /api/private/user/{id}/account/history
 
 
 
@@ -119,6 +120,7 @@ API состоит из двух частей - публичного (досту
 * адрес и порт запуска сервиса: переменная окружения ОС RUN_ADDRESS или флаг -a;
 * адрес подключения к базе данных: переменная окружения ОС DATABASE_URI или флаг -d;
 * адрес rpc-узла для отслеживания ввода и вывода: переменная окружения ОС RPC_NODE_URL или флаг -r.
+* приватный ключ адреса биржи в base64 кодировке: переменная окружения ОС PRIVATE_KEY или флаг -k.
 
 
 
