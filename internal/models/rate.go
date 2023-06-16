@@ -1,9 +1,9 @@
 package models
 
 type Rate struct {
-	User    string
+	Author  string
 	Project uint64
+	User    string
 	Rate    uint8
 	Message string
-	Owner   string
 }
