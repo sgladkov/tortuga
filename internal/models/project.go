@@ -6,7 +6,7 @@ type Project struct {
 	Id          uint64
 	Title       string
 	Description string
-	Tags        []string
+	Tags        Tags
 	Created     time.Time
 	Status      uint8
 	Owner       string

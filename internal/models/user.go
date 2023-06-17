@@ -9,7 +9,7 @@ type User struct {
 	Nonce       uint64
 	Registered  time.Time
 	Status      uint8
-	Tags        []string
+	Tags        Tags
 	Rating      float64
 	Account     uint64
 }
