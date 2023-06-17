@@ -15,12 +15,12 @@ func TortugaRouter(s storage2.Storage) chi.Router {
 	r.Use(GzipHandle)
 	r.Get("/", mock)
 	r.Route("/api/public/", func(r chi.Router) {
-		r.Get("/config", mock)
-		r.Get("/user_list", mock)
-		r.Get("/user/{id}", mock)
-		r.Get("/user/{id}/history", mock)
-		r.Get("/project_list", mock)
-		r.Get("/project/{id}", mock)
+		r.Get("/config", ConfigInfo)
+		r.Get("/user_list", UserList)
+		r.Get("/user/{id}", UserInfo)
+		r.Get("/user/{id}/history", UserHistory)
+		r.Get("/project_list", ProjectList)
+		r.Get("/project/{id}", ProjectInfo)
 	})
 	r.Route("/api/private/", func(r chi.Router) {
 		r.Post("/register", mock)
