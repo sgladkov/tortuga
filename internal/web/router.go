@@ -2,9 +2,13 @@ package web
 
 import (
 	"github.com/go-chi/chi"
+	storage2 "github.com/sgladkov/tortuga/internal/storage"
 )
 
-func TortugaRouter() chi.Router {
+var storage storage2.Storage
+
+func TortugaRouter(s storage2.Storage) chi.Router {
+	storage = s
 	r := chi.NewRouter()
 	r.Middlewares()
 	r.Use(RequestLogger)
