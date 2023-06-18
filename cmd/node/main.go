@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/sgladkov/tortuga/internal/blockchain"
 	"github.com/sgladkov/tortuga/internal/logger"
 	"github.com/sgladkov/tortuga/internal/models"
 	storage2 "github.com/sgladkov/tortuga/internal/storage"
@@ -43,8 +44,27 @@ func main() {
 	} else {
 		storage = storage2.NewTestStorage([]models.User{}, []models.Project{}, []models.Bid{}, []models.Rate{})
 	}
+
+	var key []byte
+	if len(config.WalletKey) > 0 {
+		key = config.WalletKey
+	} else {
+		key, err = blockchain.GeneratePrivateKey()
+		if err != nil {
+			logger.Log.Fatal("failed to init exchange wallet address", zap.Error(err))
+		}
+	}
+	pubKey, err := blockchain.PublicKeyFromPrivateKey(key)
+	if err != nil {
+		logger.Log.Fatal("failed to init exchange wallet address", zap.Error(err))
+	}
+	address, err := blockchain.AddressFromPublicKey(pubKey)
+	if err != nil {
+		logger.Log.Fatal("failed to init exchange wallet address", zap.Error(err))
+	}
+
 	logger.Log.Info("Starting server", zap.String("address", config.Endpoint))
-	err = http.ListenAndServe(config.Endpoint, web.TortugaRouter(storage))
+	err = http.ListenAndServe(config.Endpoint, web.TortugaRouter(storage, address))
 	if err != nil {
 		logger.Log.Fatal("failed to start server", zap.Error(err))
 	}

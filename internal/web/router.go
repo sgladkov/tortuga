@@ -6,8 +6,9 @@ import (
 )
 
 var storage storage2.Storage
+var address string
 
-func TortugaRouter(s storage2.Storage) chi.Router {
+func TortugaRouter(s storage2.Storage, a string) chi.Router {
 	storage = s
 	r := chi.NewRouter()
 	r.Middlewares()

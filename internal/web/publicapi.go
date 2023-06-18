@@ -15,7 +15,16 @@ func mock(w http.ResponseWriter, _ *http.Request) {
 }
 
 func ConfigInfo(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusNoContent)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	data := struct {
+		ExchangeWallet string
+	}{address}
+	err := json.NewEncoder(w).Encode(&data)
+	if err != nil {
+		logger.Log.Warn("Failed to write info to body", zap.Error(err))
+		return
+	}
 }
 
 func UserList(w http.ResponseWriter, _ *http.Request) {
