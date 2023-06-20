@@ -10,6 +10,7 @@ var address string
 
 func TortugaRouter(s storage2.Storage, a string) chi.Router {
 	storage = s
+	address = a
 	r := chi.NewRouter()
 	r.Middlewares()
 	r.Use(RequestLogger)
