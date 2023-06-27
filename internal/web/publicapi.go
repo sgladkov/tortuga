@@ -10,11 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func mock(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func ConfigInfo(w http.ResponseWriter, _ *http.Request) {
+func configInfo(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	data := struct {
@@ -27,7 +23,7 @@ func ConfigInfo(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-func UserList(w http.ResponseWriter, _ *http.Request) {
+func userList(w http.ResponseWriter, _ *http.Request) {
 	users, err := storage.GetUserList()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -42,7 +38,7 @@ func UserList(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-func UserInfo(w http.ResponseWriter, r *http.Request) {
+func userInfo(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	user, err := storage.GetUser(id)
 	if err != nil {
@@ -58,7 +54,7 @@ func UserInfo(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func UserHistory(w http.ResponseWriter, r *http.Request) {
+func userHistory(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	projects, err := storage.GetUserProjects(id)
 	if err != nil {
@@ -74,7 +70,7 @@ func UserHistory(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func ProjectList(w http.ResponseWriter, _ *http.Request) {
+func projectList(w http.ResponseWriter, _ *http.Request) {
 	projects, err := storage.GetUserList()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -89,7 +85,7 @@ func ProjectList(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-func ProjectInfo(w http.ResponseWriter, r *http.Request) {
+func projectInfo(w http.ResponseWriter, r *http.Request) {
 	strId := chi.URLParam(r, "id")
 	id, err := strconv.ParseUint(strId, 10, 64)
 	if err != nil {
