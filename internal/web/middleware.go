@@ -12,6 +12,7 @@ import (
 
 	"github.com/sgladkov/tortuga/internal/blockchain"
 	"github.com/sgladkov/tortuga/internal/logger"
+
 	"go.uber.org/zap"
 )
 

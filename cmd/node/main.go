@@ -11,6 +11,7 @@ import (
 	storage2 "github.com/sgladkov/tortuga/internal/storage"
 	"github.com/sgladkov/tortuga/internal/utils"
 	"github.com/sgladkov/tortuga/internal/web"
+
 	"go.uber.org/zap"
 )
 
@@ -45,16 +46,7 @@ func main() {
 		storage = storage2.NewTestStorage([]models.User{}, []models.Project{}, []models.Bid{}, []models.Rate{})
 	}
 
-	var key []byte
-	if len(config.WalletKey) > 0 {
-		key = config.WalletKey
-	} else {
-		key, err = blockchain.GeneratePrivateKey()
-		if err != nil {
-			logger.Log.Fatal("failed to init exchange wallet address", zap.Error(err))
-		}
-	}
-	pubKey, err := blockchain.PublicKeyFromPrivateKey(key)
+	pubKey, err := blockchain.PublicKeyFromPrivateKey(config.WalletKey)
 	if err != nil {
 		logger.Log.Fatal("failed to init exchange wallet address", zap.Error(err))
 	}

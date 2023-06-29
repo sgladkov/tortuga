@@ -4,6 +4,8 @@ import (
 	"encoding/base64"
 	"flag"
 	"os"
+
+	"github.com/sgladkov/tortuga/internal/blockchain"
 )
 
 type Config struct {
@@ -47,6 +49,10 @@ func (sc *Config) Read() error {
 	}
 
 	var err error
-	sc.WalletKey, err = base64.StdEncoding.DecodeString(key)
+	if len(key) > 0 {
+		sc.WalletKey, err = base64.StdEncoding.DecodeString(key)
+	} else {
+		sc.WalletKey, err = blockchain.GeneratePrivateKey()
+	}
 	return err
 }

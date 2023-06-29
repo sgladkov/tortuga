@@ -1,8 +1,9 @@
 package web
 
 import (
-	"github.com/go-chi/chi"
 	storage2 "github.com/sgladkov/tortuga/internal/storage"
+
+	"github.com/go-chi/chi"
 )
 
 var storage storage2.Storage
