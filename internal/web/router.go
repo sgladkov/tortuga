@@ -16,7 +16,6 @@ func TortugaRouter(s storage2.Storage, a string) chi.Router {
 	r.Middlewares()
 	r.Use(RequestLogger)
 	r.Use(GzipHandle)
-	r.Use(AuthorizationHandle)
 	r.Get("/", mock)
 	r.Route("/api/public/", func(r chi.Router) {
 		r.Get("/config", configInfo)
@@ -27,6 +26,7 @@ func TortugaRouter(s storage2.Storage, a string) chi.Router {
 		r.Get("/project/{id}", projectInfo)
 	})
 	r.Route("/api/private/", func(r chi.Router) {
+		r.Use(AuthorizationHandle)
 		r.Post("/register", register)
 		r.Post("/create_project", mock)
 		r.Get("/project/{id}", mock)
