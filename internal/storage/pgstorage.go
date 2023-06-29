@@ -2,8 +2,6 @@ package storage
 
 import (
 	"database/sql"
-	"sync"
-
 	"github.com/sgladkov/tortuga/internal/logger"
 	"github.com/sgladkov/tortuga/internal/models"
 
@@ -11,8 +9,7 @@ import (
 )
 
 type PgStorage struct {
-	lock sync.Mutex
-	db   *sql.DB
+	db *sql.DB
 }
 
 func NewPgStorage(db *sql.DB) (*PgStorage, error) {
@@ -296,4 +293,8 @@ func (s *PgStorage) UpdateUserNonce(id string, nonce uint64) error {
 	}
 
 	return nil
+}
+
+func (s *PgStorage) Close() error {
+	return s.db.Close()
 }

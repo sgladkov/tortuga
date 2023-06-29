@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"database/sql"
 	"encoding/base64"
 	"flag"
 	"os"
@@ -9,20 +10,20 @@ import (
 )
 
 type Config struct {
-	Endpoint    string
-	LogLevel    string
-	DatabaseDSN string
-	RpcNode     string
-	WalletKey   []byte
+	Endpoint  string
+	LogLevel  string
+	DB        *sql.DB
+	RpcNode   string
+	WalletKey []byte
 }
 
 func (sc *Config) Read() error {
-	sc.LogLevel = "Info"
+	var DatabaseDSN string
+	var key string
 	flag.StringVar(&sc.Endpoint, "a", "localhost:8080", "endpoint to start server (localhost:8080 by default)")
 	flag.StringVar(&sc.LogLevel, "l", "info", "log level (fatal,  error,  warn, info, debug)")
 	flag.StringVar(&sc.RpcNode, "r", "/tmp/metrics-db.json", "file to store ans restore metrics")
-	flag.StringVar(&sc.DatabaseDSN, "d", "", "database connection string for PostgreSQL")
-	var key string
+	flag.StringVar(&DatabaseDSN, "d", "", "database connection string for PostgreSQL")
 	flag.StringVar(&key, "k", "", "key to verify data integrity")
 	flag.Parse()
 
@@ -37,7 +38,7 @@ func (sc *Config) Read() error {
 	}
 	envDatabaseDSN := os.Getenv("DATABASE_DSN")
 	if len(envDatabaseDSN) > 0 {
-		sc.DatabaseDSN = envDatabaseDSN
+		DatabaseDSN = envDatabaseDSN
 	}
 	envRpcNode := os.Getenv("RPC_NODE")
 	if len(envRpcNode) > 0 {
@@ -54,5 +55,8 @@ func (sc *Config) Read() error {
 	} else {
 		sc.WalletKey, err = blockchain.GeneratePrivateKey()
 	}
+
+	sc.DB, err = sql.Open("postgres", DatabaseDSN)
+
 	return err
 }

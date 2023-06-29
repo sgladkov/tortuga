@@ -10,4 +10,5 @@ type Storage interface {
 	GetProject(id uint64) (*models.Project, error)
 	AddUser(user *models.User) error
 	UpdateUserNonce(id string, nonce uint64) error
+	Close() error
 }

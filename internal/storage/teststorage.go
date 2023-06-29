@@ -24,7 +24,9 @@ func NewTestStorage(users []models.User, projects []models.Project, bids []model
 	}
 }
 
-func (t TestStorage) GetUserList() (*models.UserList, error) {
+func (t *TestStorage) GetUserList() (*models.UserList, error) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	res := models.UserList{}
 	for _, u := range t.Users {
 		res = append(res, u.Id)
@@ -32,7 +34,9 @@ func (t TestStorage) GetUserList() (*models.UserList, error) {
 	return &res, nil
 }
 
-func (t TestStorage) GetUser(id string) (*models.User, error) {
+func (t *TestStorage) GetUser(id string) (*models.User, error) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	for _, u := range t.Users {
 		if u.Id == id {
 			return &u, nil
@@ -41,7 +45,9 @@ func (t TestStorage) GetUser(id string) (*models.User, error) {
 	return nil, fmt.Errorf("no user with id %s", id)
 }
 
-func (t TestStorage) GetProjectList() (*models.ProjectList, error) {
+func (t *TestStorage) GetProjectList() (*models.ProjectList, error) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	res := models.ProjectList{}
 	for _, p := range t.Projects {
 		res = append(res, p.Id)
@@ -49,7 +55,9 @@ func (t TestStorage) GetProjectList() (*models.ProjectList, error) {
 	return &res, nil
 }
 
-func (t TestStorage) GetUserProjects(userId string) (*models.ProjectList, error) {
+func (t *TestStorage) GetUserProjects(userId string) (*models.ProjectList, error) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	res := models.ProjectList{}
 	for _, p := range t.Projects {
 		if p.Owner == userId {
@@ -59,7 +67,9 @@ func (t TestStorage) GetUserProjects(userId string) (*models.ProjectList, error)
 	return &res, nil
 }
 
-func (t TestStorage) GetProject(id uint64) (*models.Project, error) {
+func (t *TestStorage) GetProject(id uint64) (*models.Project, error) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	for _, p := range t.Projects {
 		if p.Id == id {
 			return &p, nil
@@ -68,12 +78,16 @@ func (t TestStorage) GetProject(id uint64) (*models.Project, error) {
 	return nil, fmt.Errorf("no project with id %v", id)
 }
 
-func (t TestStorage) AddUser(user *models.User) error {
+func (t *TestStorage) AddUser(user *models.User) error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	t.Users = append(t.Users, *user)
 	return nil
 }
 
-func (t TestStorage) UpdateUserNonce(id string, nonce uint64) error {
+func (t *TestStorage) UpdateUserNonce(id string, nonce uint64) error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	for _, u := range t.Users {
 		if u.Id == id {
 			u.Nonce = nonce
@@ -81,4 +95,8 @@ func (t TestStorage) UpdateUserNonce(id string, nonce uint64) error {
 		}
 	}
 	return fmt.Errorf("no user with id %s", id)
+}
+
+func (t *TestStorage) Close() error {
+	return nil
 }

@@ -1,14 +1,10 @@
 package main
 
 import (
-	"database/sql"
 	"log"
 	"net/http"
 
-	"github.com/sgladkov/tortuga/internal/blockchain"
 	"github.com/sgladkov/tortuga/internal/logger"
-	"github.com/sgladkov/tortuga/internal/models"
-	storage2 "github.com/sgladkov/tortuga/internal/storage"
 	"github.com/sgladkov/tortuga/internal/utils"
 	"github.com/sgladkov/tortuga/internal/web"
 
@@ -21,40 +17,28 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	err = logger.Initialize(config.LogLevel)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	var storage storage2.Storage
-	if len(config.DatabaseDSN) > 0 {
-		db, err := sql.Open("postgres", config.DatabaseDSN)
-		if err != nil {
-			logger.Log.Fatal("failed to open database", zap.Error(err))
-		}
-		defer func() {
-			err := db.Close()
-			if err != nil {
-				logger.Log.Warn("failed to close database", zap.Error(err))
-			}
-		}()
-		storage, err = storage2.NewPgStorage(db)
-		if err != nil {
-			logger.Log.Fatal("failed to init storage", zap.Error(err))
-		}
-	} else {
-		storage = storage2.NewTestStorage([]models.User{}, []models.Project{}, []models.Bid{}, []models.Rate{})
-	}
-
-	pubKey, err := blockchain.PublicKeyFromPrivateKey(config.WalletKey)
-	if err != nil {
-		logger.Log.Fatal("failed to init exchange wallet address", zap.Error(err))
-	}
-	address, err := blockchain.AddressFromPublicKey(pubKey)
+	address, err := initAddress(&config)
 	if err != nil {
 		logger.Log.Fatal("failed to init exchange wallet address", zap.Error(err))
 	}
 	logger.Log.Info("Wallet address", zap.String("address", address))
+
+	storage, err := initStorage(&config)
+	if err != nil {
+		logger.Log.Fatal("failed to init storage", zap.Error(err))
+	}
+	defer func() {
+		err := storage.Close()
+		if err != nil {
+			logger.Log.Warn("failed to close storage", zap.Error(err))
+		}
+	}()
 
 	logger.Log.Info("Starting server", zap.String("host", config.Endpoint))
 	err = http.ListenAndServe(config.Endpoint, web.TortugaRouter(storage, address))
