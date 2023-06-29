@@ -4,10 +4,14 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"golang.org/x/crypto/sha3"
 )
+
+const CompactPublicKeyLength = 65
+const AddressBytesOffset = 12
 
 func GeneratePrivateKey() ([]byte, error) {
 	privateKey, err := crypto.GenerateKey()
@@ -32,7 +36,7 @@ func PublicKeyFromPrivateKey(privKeyBytes []byte) ([]byte, error) {
 }
 
 func AddressFromPublicKey(pubKey []byte) (string, error) {
-	if len(pubKey) != 65 {
+	if len(pubKey) != CompactPublicKeyLength {
 		return "", errors.New("invalid public key length")
 	}
 	hash := sha3.NewLegacyKeccak256()
@@ -41,9 +45,9 @@ func AddressFromPublicKey(pubKey []byte) (string, error) {
 		return "", err
 	}
 	buf := hash.Sum(nil)
-	address := buf[12:]
+	address := fmt.Sprintf("0x%s", hex.EncodeToString(buf[AddressBytesOffset:]))
 
-	return "0x" + hex.EncodeToString(address), nil
+	return address, nil
 }
 
 func SignData(data []byte, privKeyBytes []byte) ([]byte, error) {
