@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/sgladkov/tortuga/internal/blockchain"
@@ -116,10 +115,6 @@ func RequestLogger(h http.Handler) http.Handler {
 
 func AuthorizationHandle(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.HasPrefix(r.URL.Path, "/api/private") {
-			h.ServeHTTP(w, r)
-			return
-		}
 		address := r.Header.Get("TRTG-Address")
 		if len(address) == 0 {
 			logger.Log.Warn("no public key in headers")

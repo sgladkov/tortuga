@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"github.com/sgladkov/tortuga/internal/logger"
 	"github.com/sgladkov/tortuga/internal/models"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -51,7 +52,7 @@ func initDB(db *sql.DB) error {
 		return err
 	}
 	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS Projects (" +
-		"id bigint PRIMARY KEY, " +
+		"id bigint PRIMARY KEY generated always as identity, " +
 		"title varchar(1024), " +
 		"description text, " +
 		"tags text, " +
@@ -235,7 +236,7 @@ func (s *PgStorage) GetProject(id uint64) (*models.Project, error) {
 		}
 	}()
 	rowProject := stmtProject.QueryRow(id)
-	if rowProject.Err() != nil {
+	if err = rowProject.Err(); err != nil {
 		logger.Log.Error("Failed to query project data", zap.Error(err))
 		return nil, err
 	}
@@ -293,6 +294,34 @@ func (s *PgStorage) UpdateUserNonce(id string, nonce uint64) error {
 	}
 
 	return nil
+}
+
+func (s *PgStorage) CreateProject(title string, description string, tags models.Tags, owner string, deadline time.Duration, price uint64) (uint64, error) {
+	stmtUser, err := s.db.Prepare("INSERT INTO Projects (title, description, tags, created, status, owner, deadline, price) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id")
+	if err != nil {
+		logger.Log.Error("Failed to prepare query", zap.Error(err))
+		return 0, err
+	}
+	defer func() {
+		err = stmtUser.Close()
+		if err != nil {
+			logger.Log.Error("Failed to close statement", zap.Error(err))
+		}
+	}()
+
+	row := stmtUser.QueryRow(title, description, tags, time.Now(), models.Open, owner, deadline, price)
+	if err = row.Err(); err != nil {
+		logger.Log.Error("Failed to execute query", zap.Error(err))
+		return 0, err
+	}
+
+	var id uint64
+	err = row.Scan(&id)
+	if err != nil {
+		logger.Log.Error("Failed to get data from rowset", zap.Error(err))
+		return 0, err
+	}
+	return id, nil
 }
 
 func (s *PgStorage) Close() error {

@@ -2,25 +2,37 @@ package storage
 
 import (
 	"fmt"
-	"sync"
-
 	"github.com/sgladkov/tortuga/internal/models"
+	"sync"
+	"time"
 )
 
 type TestStorage struct {
-	lock     sync.Mutex
-	Users    []models.User
-	Projects []models.Project
-	Bids     []models.Bid
-	Rates    []models.Rate
+	lock         sync.Mutex
+	Users        []models.User
+	Projects     []models.Project
+	Bids         []models.Bid
+	Rates        []models.Rate
+	MaxProjectId uint64
+}
+
+func maxProjectId(projects []models.Project) uint64 {
+	res := uint64(0)
+	for _, p := range projects {
+		if p.Id > res {
+			res = p.Id
+		}
+	}
+	return res
 }
 
 func NewTestStorage(users []models.User, projects []models.Project, bids []models.Bid, rates []models.Rate) *TestStorage {
 	return &TestStorage{
-		Users:    users,
-		Projects: projects,
-		Bids:     bids,
-		Rates:    rates,
+		Users:        users,
+		Projects:     projects,
+		Bids:         bids,
+		Rates:        rates,
+		MaxProjectId: maxProjectId(projects),
 	}
 }
 
@@ -95,6 +107,25 @@ func (t *TestStorage) UpdateUserNonce(id string, nonce uint64) error {
 		}
 	}
 	return fmt.Errorf("no user with id %s", id)
+}
+
+func (t *TestStorage) CreateProject(title string, description string, tags models.Tags, owner string, deadline time.Duration, price uint64) (uint64, error) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	project := models.Project{
+		Id:          t.MaxProjectId + 1,
+		Title:       title,
+		Description: description,
+		Tags:        tags,
+		Created:     time.Now(),
+		Status:      models.Open,
+		Owner:       owner,
+		Deadline:    deadline,
+		Price:       price,
+	}
+	t.Projects = append(t.Projects, project)
+	t.MaxProjectId++
+	return project.Id, nil
 }
 
 func (t *TestStorage) Close() error {
