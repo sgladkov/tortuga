@@ -128,6 +128,35 @@ func (t *TestStorage) CreateProject(title string, description string, tags model
 	return project.Id, nil
 }
 
+func (t *TestStorage) UpdateProject(projectId uint64, title string, description string, tags models.Tags,
+	deadline time.Duration, price uint64) error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	for _, p := range t.Projects {
+		if p.Id == projectId {
+			p.Title = title
+			p.Description = description
+			p.Tags = tags
+			p.Deadline = deadline
+			p.Price = price
+			return nil
+		}
+	}
+	return fmt.Errorf("no project with id %d", projectId)
+}
+
+func (t *TestStorage) DeleteProject(projectId uint64) error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	for idx, p := range t.Projects {
+		if p.Id == projectId {
+			t.Projects = append(t.Projects[:idx], t.Projects[idx+1:]...)
+			return nil
+		}
+	}
+	return fmt.Errorf("no project with id %d", projectId)
+}
+
 func (t *TestStorage) Close() error {
 	return nil
 }

@@ -324,6 +324,51 @@ func (s *PgStorage) CreateProject(title string, description string, tags models.
 	return id, nil
 }
 
+func (s *PgStorage) UpdateProject(projectId uint64, title string, description string, tags models.Tags,
+	deadline time.Duration, price uint64) error {
+	stmtUser, err := s.db.Prepare("UPDATE Projects SET title = $1, description = $2, tags = $3, deadline = $4, price = $5 WHERE id = $6")
+	if err != nil {
+		logger.Log.Error("Failed to prepare query", zap.Error(err))
+		return err
+	}
+	defer func() {
+		err = stmtUser.Close()
+		if err != nil {
+			logger.Log.Error("Failed to close statement", zap.Error(err))
+		}
+	}()
+
+	_, err = stmtUser.Exec(title, description, tags, deadline, price, projectId)
+	if err != nil {
+		logger.Log.Error("Failed to execute query", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+func (s *PgStorage) DeleteProject(projectId uint64) error {
+	stmtUser, err := s.db.Prepare("DELETE FROM Projects WHERE id = $1")
+	if err != nil {
+		logger.Log.Error("Failed to prepare query", zap.Error(err))
+		return err
+	}
+	defer func() {
+		err = stmtUser.Close()
+		if err != nil {
+			logger.Log.Error("Failed to close statement", zap.Error(err))
+		}
+	}()
+
+	_, err = stmtUser.Exec(projectId)
+	if err != nil {
+		logger.Log.Error("Failed to execute query", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
 func (s *PgStorage) Close() error {
 	return s.db.Close()
 }
