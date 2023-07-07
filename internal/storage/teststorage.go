@@ -14,6 +14,7 @@ type TestStorage struct {
 	Bids         []models.Bid
 	Rates        []models.Rate
 	MaxProjectId uint64
+	MaxBidId     uint64
 }
 
 func maxProjectId(projects []models.Project) uint64 {
@@ -26,6 +27,16 @@ func maxProjectId(projects []models.Project) uint64 {
 	return res
 }
 
+func maxBidId(bids []models.Bid) uint64 {
+	res := uint64(0)
+	for _, b := range bids {
+		if b.Id > res {
+			res = b.Id
+		}
+	}
+	return res
+}
+
 func NewTestStorage(users []models.User, projects []models.Project, bids []models.Bid, rates []models.Rate) *TestStorage {
 	return &TestStorage{
 		Users:        users,
@@ -33,6 +44,7 @@ func NewTestStorage(users []models.User, projects []models.Project, bids []model
 		Bids:         bids,
 		Rates:        rates,
 		MaxProjectId: maxProjectId(projects),
+		MaxBidId:     maxBidId(bids),
 	}
 }
 
@@ -155,6 +167,116 @@ func (t *TestStorage) DeleteProject(projectId uint64) error {
 		}
 	}
 	return fmt.Errorf("no project with id %d", projectId)
+}
+
+func (t *TestStorage) CreateBid(projectId uint64, fromUser string, price uint64, deadline time.Duration,
+	message string) (uint64, error) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	found := false
+	for _, p := range t.Projects {
+		if p.Id == projectId {
+			found = true
+		}
+	}
+	if !found {
+		return 0, fmt.Errorf("no project with id %d", projectId)
+	}
+	found = false
+	for _, u := range t.Users {
+		if u.Id == fromUser {
+			found = true
+		}
+	}
+	if !found {
+		return 0, fmt.Errorf("no user with id %d", fromUser)
+	}
+
+	bid := models.Bid{
+		Id:       t.MaxBidId + 1,
+		Project:  projectId,
+		User:     fromUser,
+		Deadline: deadline,
+		Price:    price,
+		Message:  message,
+	}
+	t.Bids = append(t.Bids, bid)
+	t.MaxBidId++
+	return bid.Id, nil
+}
+
+func (t *TestStorage) GetBid(id uint64) (*models.Bid, error) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	for _, b := range t.Bids {
+		if b.Id == id {
+			return &b, nil
+		}
+	}
+	return nil, fmt.Errorf("no bid with id %v", id)
+}
+
+func (t *TestStorage) GetProjectBids(projectId uint64) ([]uint64, error) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	res := []uint64{}
+	for _, b := range t.Bids {
+		if b.Project == projectId {
+			res = append(res, b.Id)
+		}
+	}
+	return res, nil
+}
+
+func (t *TestStorage) UpdateBid(id uint64, price uint64, deadline time.Duration, message string) error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	for _, b := range t.Bids {
+		if b.Id == id {
+			b.Deadline = deadline
+			b.Price = price
+			b.Message = message
+			return nil
+		}
+	}
+	return fmt.Errorf("no bid with id %d", id)
+}
+
+func (t *TestStorage) DeleteBid(id uint64) error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	for idx, b := range t.Bids {
+		if b.Id == id {
+			t.Bids = append(t.Bids[:idx], t.Bids[idx+1:]...)
+			return nil
+		}
+	}
+	return fmt.Errorf("no bid with id %d", id)
+}
+
+func (t *TestStorage) AcceptBid(id uint64) error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	for idx, b := range t.Bids {
+		if b.Id == id {
+			found := false
+			for _, p := range t.Projects {
+				if p.Id == b.Project {
+					p.Contractor = b.User
+					p.Deadline = b.Deadline
+					p.Price = b.Price
+					p.Status = models.InWork
+					found = true
+				}
+			}
+			if !found {
+				return fmt.Errorf("no project with id %d", b.Project)
+			}
+			t.Bids = append(t.Bids[:idx], t.Bids[idx+1:]...)
+			return nil
+		}
+	}
+	return fmt.Errorf("no bid with id %d", id)
 }
 
 func (t *TestStorage) Close() error {

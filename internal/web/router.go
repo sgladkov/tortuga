@@ -2,12 +2,17 @@ package web
 
 import (
 	storage2 "github.com/sgladkov/tortuga/internal/storage"
+	"net/http"
 
 	"github.com/go-chi/chi"
 )
 
 var storage storage2.Storage
 var address string
+
+func mock(w http.ResponseWriter, _ *http.Request) {
+	w.WriteHeader(http.StatusNoContent)
+}
 
 func TortugaRouter(s storage2.Storage, a string) chi.Router {
 	storage = s
@@ -24,13 +29,17 @@ func TortugaRouter(s storage2.Storage, a string) chi.Router {
 		r.Get("/user/{id}/history", userHistory)
 		r.Get("/project_list", projectList)
 		r.Get("/project/{id}", projectInfo)
+		r.Get("/project/{id}/bids", projectBids)
+		r.Get("/bid/{id}", bidInfo)
 	})
 	r.Route("/api/private/", func(r chi.Router) {
 		r.Use(AuthorizationHandle)
 		r.Post("/register", register)
 		r.Post("/create_project", createProject)
-		r.Get("/project/{id}", mock)
-		r.Post("/project/{id}/accept_bid", mock)
+		r.Post("/project/{id}/create_bid", createBid)
+		r.Post("/bid/{id}/accept_bid", acceptBid)
+		r.Post("/bid/{id}/update_bid", updateBid)
+		r.Post("/bid/{id}/delete_bid", deleteBid)
 		r.Post("/project/{id}/update", updateProject)
 		r.Post("/project/{id}/delete", deleteProject)
 		r.Post("/project/{id}/cancel_work", mock)

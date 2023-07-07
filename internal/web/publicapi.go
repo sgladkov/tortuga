@@ -72,7 +72,7 @@ func userHistory(w http.ResponseWriter, r *http.Request) {
 }
 
 func projectList(w http.ResponseWriter, _ *http.Request) {
-	projects, err := storage.GetUserList()
+	projects, err := storage.GetProjectList()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -103,6 +103,47 @@ func projectInfo(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(&project)
 	if err != nil {
 		logger.Log.Warn("Failed to write project to body", zap.Error(err))
+		return
+	}
+}
+
+func projectBids(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	bids, err := storage.GetProjectBids(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(&bids)
+	if err != nil {
+		logger.Log.Warn("Failed to write user history to body", zap.Error(err))
+		return
+	}
+}
+
+func bidInfo(w http.ResponseWriter, r *http.Request) {
+	strId := chi.URLParam(r, "id")
+	id, err := strconv.ParseUint(strId, 10, 64)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	bid, err := storage.GetBid(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(&bid)
+	if err != nil {
+		logger.Log.Warn("Failed to write bid to body", zap.Error(err))
 		return
 	}
 }

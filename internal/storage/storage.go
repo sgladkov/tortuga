@@ -18,5 +18,11 @@ type Storage interface {
 	UpdateProject(projectId uint64, title string, description string, tags models.Tags, deadline time.Duration,
 		price uint64) error
 	DeleteProject(projectId uint64) error
+	CreateBid(projectId uint64, fromUser string, price uint64, deadline time.Duration, message string) (uint64, error)
+	GetBid(id uint64) (*models.Bid, error)
+	GetProjectBids(projectId uint64) ([]uint64, error)
+	UpdateBid(id uint64, price uint64, deadline time.Duration, message string) error
+	DeleteBid(id uint64) error
+	AcceptBid(id uint64) error
 	Close() error
 }
