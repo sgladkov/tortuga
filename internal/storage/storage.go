@@ -24,5 +24,8 @@ type Storage interface {
 	UpdateBid(id uint64, price uint64, deadline time.Duration, message string) error
 	DeleteBid(id uint64) error
 	AcceptBid(id uint64) error
+	CancelProject(id uint64) error
+	SetProjectReady(id uint64) error
+	AcceptProject(id uint64) error
 	Close() error
 }

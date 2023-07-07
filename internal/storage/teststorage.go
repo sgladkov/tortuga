@@ -279,6 +279,51 @@ func (t *TestStorage) AcceptBid(id uint64) error {
 	return fmt.Errorf("no bid with id %d", id)
 }
 
+func (t *TestStorage) CancelProject(id uint64) error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	for _, p := range t.Projects {
+		if p.Id == id {
+			if p.Status == models.InWork || p.Status == models.InReview {
+				p.Status = models.Canceled
+				return nil
+			}
+			return fmt.Errorf("invalid project status %d", p.Status)
+		}
+	}
+	return fmt.Errorf("no project with id %d", id)
+}
+
+func (t *TestStorage) SetProjectReady(id uint64) error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	for _, p := range t.Projects {
+		if p.Id == id {
+			if p.Status == models.InWork {
+				p.Status = models.InReview
+				return nil
+			}
+			return fmt.Errorf("invalid project status %d", p.Status)
+		}
+	}
+	return fmt.Errorf("no project with id %d", id)
+}
+
+func (t *TestStorage) AcceptProject(id uint64) error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	for _, p := range t.Projects {
+		if p.Id == id {
+			if p.Status == models.InReview {
+				p.Status = models.Completed
+				return nil
+			}
+			return fmt.Errorf("invalid project status %d", p.Status)
+		}
+	}
+	return fmt.Errorf("no project with id %d", id)
+}
+
 func (t *TestStorage) Close() error {
 	return nil
 }

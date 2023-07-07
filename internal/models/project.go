@@ -7,6 +7,7 @@ type ProjectStatus uint8
 const (
 	Open ProjectStatus = iota
 	InWork
+	InReview
 	Completed
 	Canceled
 )

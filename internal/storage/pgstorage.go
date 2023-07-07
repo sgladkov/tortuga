@@ -572,6 +572,40 @@ func (s *PgStorage) AcceptBid(id uint64) error {
 	return tx.Commit()
 }
 
+func (s *PgStorage) CancelProject(id uint64) error {
+	return s.setProjectStatus(id, models.Canceled)
+}
+
+func (s *PgStorage) SetProjectReady(id uint64) error {
+	return s.setProjectStatus(id, models.InReview)
+}
+
+func (s *PgStorage) AcceptProject(id uint64) error {
+	return s.setProjectStatus(id, models.Completed)
+}
+
+func (s *PgStorage) setProjectStatus(id uint64, status models.ProjectStatus) error {
+	stmtProject, err := s.db.Prepare("UPDATE Projects SET status = $1 WHERE id = $2")
+	if err != nil {
+		logger.Log.Error("Failed to prepare query", zap.Error(err))
+		return err
+	}
+	defer func() {
+		err = stmtProject.Close()
+		if err != nil {
+			logger.Log.Error("Failed to close statement", zap.Error(err))
+		}
+	}()
+
+	_, err = stmtProject.Exec(status, id)
+	if err != nil {
+		logger.Log.Error("Failed to execute query", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
 func (s *PgStorage) Close() error {
 	return s.db.Close()
 }

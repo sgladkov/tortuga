@@ -193,6 +193,177 @@ func deleteProject(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func cancelProject(w http.ResponseWriter, r *http.Request) {
+	if !ContainsHeaderValue(r, "Content-Type", "application/json") {
+		contentType := r.Header.Get("Content-Type")
+		logger.Log.Warn("Wrong Content-Type header", zap.String("Content-Type", contentType))
+		http.Error(w, fmt.Sprintf("Wrong Content-Type header [%s]", contentType), http.StatusBadRequest)
+		return
+	}
+	owner := r.Header.Get("TRTG-Address")
+	if len(owner) == 0 {
+		logger.Log.Warn("no owner in headers")
+		http.Error(w, "no public key in headers", http.StatusBadRequest)
+		return
+	}
+	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		logger.Log.Warn("invalid project id")
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	savedProject, err := storage.GetProject(id)
+	if err != nil {
+		logger.Log.Warn("Failed to load project", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Failed to load project [%s]", err), http.StatusBadRequest)
+		return
+	}
+
+	if savedProject.Status != models.InWork {
+		logger.Log.Warn("Invalid project status", zap.Uint8("status", uint8(savedProject.Status)))
+		http.Error(w, "Invalid project status", http.StatusBadRequest)
+		return
+	}
+
+	if savedProject.Owner != owner && savedProject.Contractor != owner {
+		logger.Log.Warn("Invalid user", zap.String("project owner", savedProject.Owner),
+			zap.String("project contractor", savedProject.Contractor),
+			zap.String("request sender", owner))
+		http.Error(w, "Invalid user", http.StatusForbidden)
+		return
+	}
+
+	logger.Log.Info("cancelProject", zap.String("user", owner), zap.Any("projectId", id))
+	err = storage.CancelProject(id)
+	if err != nil {
+		logger.Log.Warn("Failed to update project in storage", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Failed to update project in storage [%s]", err), http.StatusBadGateway)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(&id)
+	if err != nil {
+		logger.Log.Warn("Failed to write info to body", zap.Error(err))
+		return
+	}
+}
+
+func readyProject(w http.ResponseWriter, r *http.Request) {
+	if !ContainsHeaderValue(r, "Content-Type", "application/json") {
+		contentType := r.Header.Get("Content-Type")
+		logger.Log.Warn("Wrong Content-Type header", zap.String("Content-Type", contentType))
+		http.Error(w, fmt.Sprintf("Wrong Content-Type header [%s]", contentType), http.StatusBadRequest)
+		return
+	}
+	owner := r.Header.Get("TRTG-Address")
+	if len(owner) == 0 {
+		logger.Log.Warn("no owner in headers")
+		http.Error(w, "no public key in headers", http.StatusBadRequest)
+		return
+	}
+	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		logger.Log.Warn("invalid project id")
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	savedProject, err := storage.GetProject(id)
+	if err != nil {
+		logger.Log.Warn("Failed to load project", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Failed to load project [%s]", err), http.StatusBadRequest)
+		return
+	}
+
+	if savedProject.Status != models.InWork {
+		logger.Log.Warn("Invalid project status", zap.Uint8("status", uint8(savedProject.Status)))
+		http.Error(w, "Invalid project status", http.StatusBadRequest)
+		return
+	}
+
+	if savedProject.Contractor != owner {
+		logger.Log.Warn("Invalid user", zap.String("project owner", savedProject.Owner),
+			zap.String("project contractor", savedProject.Contractor),
+			zap.String("request sender", owner))
+		http.Error(w, "Invalid user", http.StatusForbidden)
+		return
+	}
+
+	logger.Log.Info("readyProject", zap.String("user", owner), zap.Any("projectId", id))
+	err = storage.SetProjectReady(id)
+	if err != nil {
+		logger.Log.Warn("Failed to update project in storage", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Failed to update project in storage [%s]", err), http.StatusBadGateway)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(&id)
+	if err != nil {
+		logger.Log.Warn("Failed to write info to body", zap.Error(err))
+		return
+	}
+}
+
+func acceptProject(w http.ResponseWriter, r *http.Request) {
+	if !ContainsHeaderValue(r, "Content-Type", "application/json") {
+		contentType := r.Header.Get("Content-Type")
+		logger.Log.Warn("Wrong Content-Type header", zap.String("Content-Type", contentType))
+		http.Error(w, fmt.Sprintf("Wrong Content-Type header [%s]", contentType), http.StatusBadRequest)
+		return
+	}
+	owner := r.Header.Get("TRTG-Address")
+	if len(owner) == 0 {
+		logger.Log.Warn("no owner in headers")
+		http.Error(w, "no public key in headers", http.StatusBadRequest)
+		return
+	}
+	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		logger.Log.Warn("invalid project id")
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	savedProject, err := storage.GetProject(id)
+	if err != nil {
+		logger.Log.Warn("Failed to load project", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Failed to load project [%s]", err), http.StatusBadRequest)
+		return
+	}
+
+	if savedProject.Status != models.InReview {
+		logger.Log.Warn("Invalid project status", zap.Uint8("status", uint8(savedProject.Status)))
+		http.Error(w, "Invalid project status", http.StatusBadRequest)
+		return
+	}
+
+	if savedProject.Owner != owner {
+		logger.Log.Warn("Invalid user", zap.String("project owner", savedProject.Owner),
+			zap.String("project contractor", savedProject.Contractor),
+			zap.String("request sender", owner))
+		http.Error(w, "Invalid user", http.StatusForbidden)
+		return
+	}
+
+	logger.Log.Info("acceptProject", zap.String("user", owner), zap.Any("projectId", id))
+	err = storage.AcceptProject(id)
+	if err != nil {
+		logger.Log.Warn("Failed to update project in storage", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Failed to update project in storage [%s]", err), http.StatusBadGateway)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(&id)
+	if err != nil {
+		logger.Log.Warn("Failed to write info to body", zap.Error(err))
+		return
+	}
+}
+
 func createBid(w http.ResponseWriter, r *http.Request) {
 	if !ContainsHeaderValue(r, "Content-Type", "application/json") {
 		contentType := r.Header.Get("Content-Type")
@@ -407,5 +578,3 @@ func deleteBid(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
-
-
