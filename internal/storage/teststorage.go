@@ -86,14 +86,14 @@ func (t *TestStorage) RollbackTx() error {
 	return nil
 }
 
-func (t *TestStorage) GetUserList() (*models.UserList, error) {
+func (t *TestStorage) GetUserList() ([]models.User, error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
-	res := models.UserList{}
+	var res []models.User
 	for _, u := range t.Users {
-		res = append(res, u.Id)
+		res = append(res, u)
 	}
-	return &res, nil
+	return res, nil
 }
 
 func (t *TestStorage) GetUser(id string) (*models.User, error) {
@@ -107,26 +107,26 @@ func (t *TestStorage) GetUser(id string) (*models.User, error) {
 	return nil, fmt.Errorf("no user with id %s", id)
 }
 
-func (t *TestStorage) GetProjectList() (*models.ProjectList, error) {
+func (t *TestStorage) GetProjectList() ([]models.Project, error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
-	res := models.ProjectList{}
+	var res []models.Project
 	for _, p := range t.Projects {
-		res = append(res, p.Id)
+		res = append(res, p)
 	}
-	return &res, nil
+	return res, nil
 }
 
-func (t *TestStorage) GetUserProjects(userId string) (*models.ProjectList, error) {
+func (t *TestStorage) GetUserProjects(userId string) ([]models.Project, error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
-	res := models.ProjectList{}
+	var res []models.Project
 	for _, p := range t.Projects {
 		if p.Owner == userId {
-			res = append(res, p.Id)
+			res = append(res, p)
 		}
 	}
-	return &res, nil
+	return res, nil
 }
 
 func (t *TestStorage) GetProject(id uint64) (*models.Project, error) {
@@ -254,13 +254,13 @@ func (t *TestStorage) GetBid(id uint64) (*models.Bid, error) {
 	return nil, fmt.Errorf("no bid with id %v", id)
 }
 
-func (t *TestStorage) GetProjectBids(projectId uint64) ([]uint64, error) {
+func (t *TestStorage) GetProjectBids(projectId uint64) ([]models.Bid, error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
-	res := []uint64{}
+	var res []models.Bid
 	for _, b := range t.Bids {
 		if b.Project == projectId {
-			res = append(res, b.Id)
+			res = append(res, b)
 		}
 	}
 	return res, nil

@@ -149,8 +149,9 @@ func (s *PgStorage) RollbackTx() error {
 	return nil
 }
 
-func (s *PgStorage) GetUserList() (*models.UserList, error) {
-	rowsUsers, err := s.exec.Query("SELECT id FROM Users")
+func (s *PgStorage) GetUserList() ([]models.User, error) {
+	rowsUsers, err := s.exec.Query("SELECT id, nickname, description, nonce, registered, status, tags, " +
+		"rating, account FROM Users")
 	if err != nil {
 		logger.Log.Error("Failed to query Users data", zap.Error(err))
 		return nil, err
@@ -161,22 +162,23 @@ func (s *PgStorage) GetUserList() (*models.UserList, error) {
 			logger.Log.Error("Failed to close rowset", zap.Error(err))
 		}
 	}()
-	res := models.UserList{}
+	var res []models.User
 	for rowsUsers.Next() {
-		var id string
-		err = rowsUsers.Scan(&id)
+		var user models.User
+		err = rowsUsers.Scan(&user.Id, &user.Nickname, &user.Description, &user.Nonce, &user.Registered,
+			&user.Status, &user.Tags, &user.Rating, &user.Account)
 		if err != nil {
 			logger.Log.Error("Failed to get data from rowset", zap.Error(err))
 			return nil, err
 		}
-		res = append(res, id)
+		res = append(res, user)
 	}
 	err = rowsUsers.Err()
 	if err != nil {
 		logger.Log.Error("error while iterating rows", zap.Error(err))
 		return nil, err
 	}
-	return &res, nil
+	return res, nil
 }
 
 func (s *PgStorage) GetUser(id string) (*models.User, error) {
@@ -207,8 +209,9 @@ func (s *PgStorage) GetUser(id string) (*models.User, error) {
 	return &res, nil
 }
 
-func (s *PgStorage) GetProjectList() (*models.ProjectList, error) {
-	rowsProjects, err := s.exec.Query("SELECT id FROM Projects")
+func (s *PgStorage) GetProjectList() ([]models.Project, error) {
+	rowsProjects, err := s.exec.Query("SELECT id, title, description, tags, created, status, owner, " +
+		"contractor, started, deadline, price FROM Projects")
 	if err != nil {
 		logger.Log.Error("Failed to query Users data", zap.Error(err))
 		return nil, err
@@ -219,26 +222,29 @@ func (s *PgStorage) GetProjectList() (*models.ProjectList, error) {
 			logger.Log.Error("Failed to close rowset", zap.Error(err))
 		}
 	}()
-	res := models.ProjectList{}
+	var res []models.Project
 	for rowsProjects.Next() {
-		var id uint64
-		err = rowsProjects.Scan(&id)
+		var project models.Project
+		err = rowsProjects.Scan(&project.Id, &project.Title, &project.Description, &project.Tags,
+			&project.Created, &project.Status, &project.Owner, &project.Contractor, &project.Started,
+			&project.Deadline, &project.Price)
 		if err != nil {
 			logger.Log.Error("Failed to get data from rowset", zap.Error(err))
 			return nil, err
 		}
-		res = append(res, id)
+		res = append(res, project)
 	}
 	err = rowsProjects.Err()
 	if err != nil {
 		logger.Log.Error("error while iterating rows", zap.Error(err))
 		return nil, err
 	}
-	return &res, nil
+	return res, nil
 }
 
-func (s *PgStorage) GetUserProjects(userId string) (*models.ProjectList, error) {
-	stmtProjects, err := s.exec.Prepare("SELECT id FROM Projects WHERE owner = $1")
+func (s *PgStorage) GetUserProjects(userId string) ([]models.Project, error) {
+	stmtProjects, err := s.exec.Prepare("SELECT id, title, description, tags, created, status, owner, " +
+		"contractor, started, deadline, price  FROM Projects WHERE owner = $1")
 	if err != nil {
 		logger.Log.Error("Failed to prepare query", zap.Error(err))
 		return nil, err
@@ -260,22 +266,24 @@ func (s *PgStorage) GetUserProjects(userId string) (*models.ProjectList, error) 
 			logger.Log.Error("Failed to close rowset", zap.Error(err))
 		}
 	}()
-	res := models.ProjectList{}
+	var res []models.Project
 	for rowsProjects.Next() {
-		var id uint64
-		err = rowsProjects.Scan(&id)
+		var project models.Project
+		err = rowsProjects.Scan(&project.Id, &project.Title, &project.Description, &project.Tags,
+			&project.Created, &project.Status, &project.Owner, &project.Contractor, &project.Started,
+			&project.Deadline, &project.Price)
 		if err != nil {
 			logger.Log.Error("Failed to get data from rowset", zap.Error(err))
 			return nil, err
 		}
-		res = append(res, id)
+		res = append(res, project)
 	}
 	err = rowsProjects.Err()
 	if err != nil {
 		logger.Log.Error("error while iterating rows", zap.Error(err))
 		return nil, err
 	}
-	return &res, nil
+	return res, nil
 }
 
 func (s *PgStorage) GetProject(id uint64) (*models.Project, error) {
@@ -481,8 +489,8 @@ func (s *PgStorage) GetBid(id uint64) (*models.Bid, error) {
 	return &res, nil
 }
 
-func (s *PgStorage) GetProjectBids(projectId uint64) ([]uint64, error) {
-	stmtBids, err := s.exec.Prepare("SELECT id FROM Bids WHERE project = $1")
+func (s *PgStorage) GetProjectBids(projectId uint64) ([]models.Bid, error) {
+	stmtBids, err := s.exec.Prepare("SELECT id, project, user, price, deadline, message FROM Bids WHERE project = $1")
 	if err != nil {
 		logger.Log.Error("Failed to prepare query", zap.Error(err))
 		return nil, err
@@ -504,15 +512,15 @@ func (s *PgStorage) GetProjectBids(projectId uint64) ([]uint64, error) {
 			logger.Log.Error("Failed to close rowset", zap.Error(err))
 		}
 	}()
-	var res []uint64
+	var res []models.Bid
 	for rowsBids.Next() {
-		var id uint64
-		err = rowsBids.Scan(&id)
+		var bid models.Bid
+		err = rowsBids.Scan(&bid.Id, &bid.Project, &bid.User, &bid.Price, &bid.Deadline, &bid.Message)
 		if err != nil {
 			logger.Log.Error("Failed to get data from rowset", zap.Error(err))
 			return nil, err
 		}
-		res = append(res, id)
+		res = append(res, bid)
 	}
 	err = rowsBids.Err()
 	if err != nil {
