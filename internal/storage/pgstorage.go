@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"fmt"
 	"github.com/sgladkov/tortuga/internal/logger"
 	"github.com/sgladkov/tortuga/internal/models"
 	"time"
@@ -9,8 +10,17 @@ import (
 	"go.uber.org/zap"
 )
 
+type DBTX interface {
+	Exec(string, ...interface{}) (sql.Result, error)
+	Prepare(string) (*sql.Stmt, error)
+	Query(string, ...interface{}) (*sql.Rows, error)
+	QueryRow(string, ...interface{}) *sql.Row
+}
+
 type PgStorage struct {
-	db *sql.DB
+	original *sql.DB
+	db       DBTX
+	tx       *sql.Tx
 }
 
 func NewPgStorage(db *sql.DB) (*PgStorage, error) {
@@ -20,7 +30,8 @@ func NewPgStorage(db *sql.DB) (*PgStorage, error) {
 		return nil, err
 	}
 	return &PgStorage{
-		db: db,
+		original: db,
+		db:       db,
 	}, nil
 }
 
@@ -91,6 +102,51 @@ func initDB(db *sql.DB) error {
 	}
 
 	return tx.Commit()
+}
+
+func (s *PgStorage) BeginTx() error {
+	if s.tx != nil {
+		logger.Log.Error("attempt to create embedded transaction")
+		return fmt.Errorf("attempt to create embedded transaction")
+	}
+	tx, err := s.original.Begin()
+	if err != nil {
+		logger.Log.Error("Failed to create db transaction", zap.Error(err))
+		return err
+	}
+	s.db = tx
+	s.tx = tx
+	return nil
+}
+
+func (s *PgStorage) CommitTx() error {
+	if s.tx == nil {
+		logger.Log.Error("attempt to commit closed transaction")
+		return fmt.Errorf("attempt to commit closed transaction")
+	}
+	err := s.tx.Commit()
+	if err != nil {
+		logger.Log.Error("Failed to commit db transaction", zap.Error(err))
+		return err
+	}
+	s.db = s.original
+	s.tx = nil
+	return nil
+}
+
+func (s *PgStorage) RollbackTx() error {
+	if s.tx == nil {
+		logger.Log.Error("attempt to rollback closed transaction")
+		return fmt.Errorf("attempt to rollback closed transaction")
+	}
+	err := s.tx.Rollback()
+	if err != nil {
+		logger.Log.Error("Failed to rollback db transaction", zap.Error(err))
+		return err
+	}
+	s.db = s.original
+	s.tx = nil
+	return nil
 }
 
 func (s *PgStorage) GetUserList() (*models.UserList, error) {
@@ -511,20 +567,8 @@ func (s *PgStorage) DeleteBid(id uint64) error {
 }
 
 func (s *PgStorage) AcceptBid(id uint64) error {
-	tx, err := s.db.Begin()
-	if err != nil {
-		logger.Log.Error("Failed to create db transaction", zap.Error(err))
-		return err
-	}
-	defer func() {
-		err = tx.Rollback()
-		if err != nil {
-			logger.Log.Info("Failed to rollback db transaction", zap.String("error", err.Error()))
-		}
-	}()
-
 	// query to update project data according to bid
-	stmtProjectUpdate, err := tx.Prepare("UPDATE Projects SET price = Bids.price, deadline = Bids.deadline, contractor=Bids.user, status = $1 FROM Bids WHERE Projects.id = Bids.project AND Bids.id = $2")
+	stmtProjectUpdate, err := s.db.Prepare("UPDATE Projects SET price = Bids.price, deadline = Bids.deadline, contractor=Bids.user, status = $1 FROM Bids WHERE Projects.id = Bids.project AND Bids.id = $2")
 	if err != nil {
 		logger.Log.Error("Failed to prepare query", zap.Error(err))
 		return err
@@ -551,7 +595,7 @@ func (s *PgStorage) AcceptBid(id uint64) error {
 	}
 
 	// query to delete accepted bid
-	stmtDeleteBid, err := tx.Prepare("DELETE FROM Bids WHERE id = $1")
+	stmtDeleteBid, err := s.db.Prepare("DELETE FROM Bids WHERE id = $1")
 	if err != nil {
 		logger.Log.Error("Failed to prepare query", zap.Error(err))
 		return err
@@ -569,7 +613,7 @@ func (s *PgStorage) AcceptBid(id uint64) error {
 		return err
 	}
 
-	return tx.Commit()
+	return nil
 }
 
 func (s *PgStorage) CancelProject(id uint64) error {
@@ -607,5 +651,5 @@ func (s *PgStorage) setProjectStatus(id uint64, status models.ProjectStatus) err
 }
 
 func (s *PgStorage) Close() error {
-	return s.db.Close()
+	return s.original.Close()
 }

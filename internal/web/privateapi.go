@@ -450,7 +450,20 @@ func acceptBid(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Log.Info("acceptBid", zap.String("user", owner), zap.Any("bid", bid))
+	err = storage.BeginTx()
+	defer func() {
+		err = storage.RollbackTx()
+		if err != nil {
+			logger.Log.Warn("failed to rollback transaction")
+		}
+	}()
 	err = storage.AcceptBid(bidId)
+	if err != nil {
+		logger.Log.Warn("Failed to accept bid in storage", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Failed to accept bid in storage [%s]", err), http.StatusBadRequest)
+		return
+	}
+	err = storage.CommitTx()
 	if err != nil {
 		logger.Log.Warn("Failed to accept bid in storage", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Failed to accept bid in storage [%s]", err), http.StatusBadRequest)

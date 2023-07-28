@@ -6,6 +6,9 @@ import (
 )
 
 type Storage interface {
+	BeginTx() error
+	CommitTx() error
+	RollbackTx() error
 	GetUserList() (*models.UserList, error)
 	GetUser(id string) (*models.User, error)
 	GetProjectList() (*models.ProjectList, error)

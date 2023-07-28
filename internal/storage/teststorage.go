@@ -15,6 +15,7 @@ type TestStorage struct {
 	Rates        []models.Rate
 	MaxProjectId uint64
 	MaxBidId     uint64
+	dataCopy     *TestStorage
 }
 
 func maxProjectId(projects []models.Project) uint64 {
@@ -46,6 +47,43 @@ func NewTestStorage(users []models.User, projects []models.Project, bids []model
 		MaxProjectId: maxProjectId(projects),
 		MaxBidId:     maxBidId(bids),
 	}
+}
+
+func (t *TestStorage) BeginTx() error {
+	if t.dataCopy != nil {
+		return fmt.Errorf("transaction is open already")
+	}
+	t.dataCopy = &TestStorage{
+		Users:        t.Users,
+		Projects:     t.Projects,
+		Bids:         t.Bids,
+		Rates:        t.Rates,
+		MaxProjectId: t.MaxProjectId,
+		MaxBidId:     t.MaxBidId,
+	}
+	return nil
+}
+
+func (t *TestStorage) CommitTx() error {
+	if t.dataCopy == nil {
+		return fmt.Errorf("transaction is closed already")
+	}
+	t.dataCopy = nil
+	return nil
+}
+
+func (t *TestStorage) RollbackTx() error {
+	if t.dataCopy == nil {
+		return fmt.Errorf("transaction is closed already")
+	}
+	t.Users = t.dataCopy.Users
+	t.Projects = t.dataCopy.Projects
+	t.Bids = t.dataCopy.Bids
+	t.Rates = t.dataCopy.Rates
+	t.MaxProjectId = t.dataCopy.MaxProjectId
+	t.MaxBidId = t.dataCopy.MaxBidId
+	t.dataCopy = nil
+	return nil
 }
 
 func (t *TestStorage) GetUserList() (*models.UserList, error) {
