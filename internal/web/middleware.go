@@ -169,9 +169,9 @@ func AuthorizationHandle(h http.Handler) http.Handler {
 			return
 		}
 
-		user, err := storage.GetUser(address)
+		user, err := marketplace.GetUser(address)
 		if err != nil {
-			logger.Log.Warn("failed to get user from storage", zap.Error(err))
+			logger.Log.Warn("failed to get user from marketplace", zap.Error(err))
 			http.Error(w, "failed to get user info", http.StatusBadGateway)
 			return
 		}
@@ -182,7 +182,7 @@ func AuthorizationHandle(h http.Handler) http.Handler {
 			return
 		}
 
-		err = storage.UpdateUserNonce(address, nonce)
+		err = marketplace.UpdateUserNonce(user.Id, nonce)
 		if err != nil {
 			logger.Log.Error("failed to update user nonce", zap.Error(err))
 		}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/sgladkov/tortuga/internal/service"
 	"log"
 	"net/http"
 
@@ -40,8 +41,10 @@ func main() {
 		}
 	}()
 
+	marketplace := service.NewMarketplace(storage)
+
 	logger.Log.Info("Starting server", zap.String("host", config.Endpoint))
-	err = http.ListenAndServe(config.Endpoint, web.TortugaRouter(storage, address))
+	err = http.ListenAndServe(config.Endpoint, web.TortugaRouter(marketplace, address))
 	if err != nil {
 		logger.Log.Fatal("failed to start server", zap.Error(err))
 	}

@@ -1,21 +1,21 @@
 package web
 
 import (
-	storage2 "github.com/sgladkov/tortuga/internal/storage"
+	"github.com/sgladkov/tortuga/internal/service"
 	"net/http"
 
 	"github.com/go-chi/chi"
 )
 
-var storage storage2.Storage
+var marketplace *service.Marketplace
 var address string
 
 func mock(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func TortugaRouter(s storage2.Storage, a string) chi.Router {
-	storage = s
+func TortugaRouter(m *service.Marketplace, a string) chi.Router {
+	marketplace = m
 	address = a
 	r := chi.NewRouter()
 	r.Middlewares()

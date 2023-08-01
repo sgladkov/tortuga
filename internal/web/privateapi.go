@@ -28,10 +28,10 @@ func register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log.Info("register", zap.Any("user", user))
-	err = storage.AddUser(&user)
+	err = marketplace.CreateUser(&user)
 	if err != nil {
-		logger.Log.Warn("Failed to add user to storage", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Failed to add user to storage [%s]", err), http.StatusBadRequest)
+		logger.Log.Warn("Failed to add user to marketplace", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Failed to add user to marketplace [%s]", err), http.StatusBadRequest)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -65,10 +65,10 @@ func createProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Log.Info("createProject", zap.String("user", owner), zap.Any("project", project))
-	id, err := storage.CreateProject(project.Title, project.Description, project.Tags, owner, project.Deadline, project.Price)
+	id, err := marketplace.CreateProject(project.Title, project.Description, project.Tags, owner, project.Deadline, project.Price)
 	if err != nil {
-		logger.Log.Warn("Failed to create project in storage", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Failed to create project in storage [%s]", err), http.StatusBadRequest)
+		logger.Log.Warn("Failed to create project in marketplace", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Failed to create project in marketplace [%s]", err), http.StatusBadRequest)
 		return
 	}
 	project.Id = id
@@ -103,7 +103,7 @@ func updateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	savedProject, err := storage.GetProject(project.Id)
+	savedProject, err := marketplace.GetProject(project.Id)
 	if err != nil {
 		logger.Log.Warn("Failed to load saved project", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Failed to load saved project [%s]", err), http.StatusBadRequest)
@@ -118,10 +118,10 @@ func updateProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Log.Info("updateProject", zap.String("user", owner), zap.Any("project", project))
-	err = storage.UpdateProject(project.Id, project.Title, project.Description, project.Tags, project.Deadline, project.Price)
+	err = marketplace.UpdateProject(project.Id, project.Title, project.Description, project.Tags, project.Deadline, project.Price)
 	if err != nil {
-		logger.Log.Warn("Failed to update project in storage", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Failed to update project in storage [%s]", err), http.StatusBadGateway)
+		logger.Log.Warn("Failed to update project in marketplace", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Failed to update project in marketplace [%s]", err), http.StatusBadGateway)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -156,7 +156,7 @@ func deleteProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	savedProject, err := storage.GetProject(data.Id)
+	savedProject, err := marketplace.GetProject(data.Id)
 	if err != nil {
 		logger.Log.Warn("Failed to load project", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Failed to load project [%s]", err), http.StatusBadRequest)
@@ -178,10 +178,10 @@ func deleteProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Log.Info("deleteProject", zap.String("user", owner), zap.Any("projectId", data.Id))
-	err = storage.DeleteProject(data.Id)
+	err = marketplace.DeleteProject(data.Id)
 	if err != nil {
-		logger.Log.Warn("Failed to update project in storage", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Failed to update project in storage [%s]", err), http.StatusBadGateway)
+		logger.Log.Warn("Failed to update project in marketplace", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Failed to update project in marketplace [%s]", err), http.StatusBadGateway)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -213,7 +213,7 @@ func cancelProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	savedProject, err := storage.GetProject(id)
+	savedProject, err := marketplace.GetProject(id)
 	if err != nil {
 		logger.Log.Warn("Failed to load project", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Failed to load project [%s]", err), http.StatusBadRequest)
@@ -235,10 +235,10 @@ func cancelProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Log.Info("cancelProject", zap.String("user", owner), zap.Any("projectId", id))
-	err = storage.CancelProject(id)
+	err = marketplace.CancelProject(id)
 	if err != nil {
-		logger.Log.Warn("Failed to update project in storage", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Failed to update project in storage [%s]", err), http.StatusBadGateway)
+		logger.Log.Warn("Failed to update project in marketplace", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Failed to update project in marketplace [%s]", err), http.StatusBadGateway)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -270,7 +270,7 @@ func readyProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	savedProject, err := storage.GetProject(id)
+	savedProject, err := marketplace.GetProject(id)
 	if err != nil {
 		logger.Log.Warn("Failed to load project", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Failed to load project [%s]", err), http.StatusBadRequest)
@@ -292,10 +292,10 @@ func readyProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Log.Info("readyProject", zap.String("user", owner), zap.Any("projectId", id))
-	err = storage.SetProjectReady(id)
+	err = marketplace.SetProjectReady(id)
 	if err != nil {
-		logger.Log.Warn("Failed to update project in storage", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Failed to update project in storage [%s]", err), http.StatusBadGateway)
+		logger.Log.Warn("Failed to update project in marketplace", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Failed to update project in marketplace [%s]", err), http.StatusBadGateway)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -327,7 +327,7 @@ func acceptProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	savedProject, err := storage.GetProject(id)
+	savedProject, err := marketplace.GetProject(id)
 	if err != nil {
 		logger.Log.Warn("Failed to load project", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Failed to load project [%s]", err), http.StatusBadRequest)
@@ -349,10 +349,10 @@ func acceptProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Log.Info("acceptProject", zap.String("user", owner), zap.Any("projectId", id))
-	err = storage.AcceptProject(id)
+	err = marketplace.AcceptProject(id)
 	if err != nil {
-		logger.Log.Warn("Failed to update project in storage", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Failed to update project in storage [%s]", err), http.StatusBadGateway)
+		logger.Log.Warn("Failed to update project in marketplace", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Failed to update project in marketplace [%s]", err), http.StatusBadGateway)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -393,10 +393,10 @@ func createBid(w http.ResponseWriter, r *http.Request) {
 
 	logger.Log.Info("createBid", zap.String("user", owner), zap.Uint64("project", projectId),
 		zap.Any("bid", bid))
-	id, err := storage.CreateBid(projectId, owner, bid.Price, bid.Deadline, bid.Message)
+	id, err := marketplace.CreateBid(projectId, owner, bid.Price, bid.Deadline, bid.Message)
 	if err != nil {
-		logger.Log.Warn("Failed to create bid in storage", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Failed to create bid in storage [%s]", err), http.StatusBadRequest)
+		logger.Log.Warn("Failed to create bid in marketplace", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Failed to create bid in marketplace [%s]", err), http.StatusBadRequest)
 		return
 	}
 	bid.Id = id
@@ -429,13 +429,13 @@ func acceptBid(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	bid, err := storage.GetBid(bidId)
+	bid, err := marketplace.GetBid(bidId)
 	if err != nil {
 		logger.Log.Warn("invalid bid id")
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	project, err := storage.GetProject(bid.Project)
+	project, err := marketplace.GetProject(bid.Project)
 	if err != nil {
 		logger.Log.Warn("invalid project in bid")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -450,28 +450,28 @@ func acceptBid(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Log.Info("acceptBid", zap.String("user", owner), zap.Any("bid", bid))
-	err = storage.BeginTx()
+	err = marketplace.BeginTx()
 	defer func() {
-		err = storage.RollbackTx()
+		err = marketplace.RollbackTx()
 		if err != nil {
 			logger.Log.Warn("failed to rollback transaction")
 		}
 	}()
-	err = storage.AcceptBid(bidId)
+	err = marketplace.AcceptBid(bidId)
 	if err != nil {
-		logger.Log.Warn("Failed to accept bid in storage", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Failed to accept bid in storage [%s]", err), http.StatusBadRequest)
+		logger.Log.Warn("Failed to accept bid in marketplace", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Failed to accept bid in marketplace [%s]", err), http.StatusBadRequest)
 		return
 	}
-	err = storage.CommitTx()
+	err = marketplace.CommitTx()
 	if err != nil {
-		logger.Log.Warn("Failed to accept bid in storage", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Failed to accept bid in storage [%s]", err), http.StatusBadRequest)
+		logger.Log.Warn("Failed to accept bid in marketplace", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Failed to accept bid in marketplace [%s]", err), http.StatusBadRequest)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	project, err = storage.GetProject(bid.Project)
+	project, err = marketplace.GetProject(bid.Project)
 	if err != nil {
 		logger.Log.Warn("invalid project in bid")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -512,7 +512,7 @@ func updateBid(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	savedBid, err := storage.GetBid(bid.Id)
+	savedBid, err := marketplace.GetBid(bid.Id)
 	if err != nil {
 		logger.Log.Warn("Failed to load saved bid", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Failed to load saved bid [%s]", err), http.StatusBadRequest)
@@ -527,10 +527,10 @@ func updateBid(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Log.Info("updateBid", zap.String("user", owner), zap.Any("bid", bid))
-	err = storage.UpdateBid(bid.Id, bid.Price, bid.Deadline, bid.Message)
+	err = marketplace.UpdateBid(bid.Id, bid.Price, bid.Deadline, bid.Message)
 	if err != nil {
-		logger.Log.Warn("Failed to update bid in storage", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Failed to update bid in storage [%s]", err), http.StatusInternalServerError)
+		logger.Log.Warn("Failed to update bid in marketplace", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Failed to update bid in marketplace [%s]", err), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -562,7 +562,7 @@ func deleteBid(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	savedBid, err := storage.GetBid(bidId)
+	savedBid, err := marketplace.GetBid(bidId)
 	if err != nil {
 		logger.Log.Warn("Failed to load bid", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Failed to load bid [%s]", err), http.StatusBadRequest)
@@ -577,10 +577,10 @@ func deleteBid(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Log.Info("deleteBid", zap.String("user", owner), zap.Any("bidId", bidId))
-	err = storage.DeleteBid(bidId)
+	err = marketplace.DeleteBid(bidId)
 	if err != nil {
-		logger.Log.Warn("Failed to delete bid in storage", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Failed to delete bid in storage [%s]", err), http.StatusBadGateway)
+		logger.Log.Warn("Failed to delete bid in marketplace", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Failed to delete bid in marketplace [%s]", err), http.StatusBadGateway)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")

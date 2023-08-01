@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/sgladkov/tortuga/internal/models"
 	"sync"
-	"time"
 )
 
 type TestStorage struct {
@@ -96,15 +95,27 @@ func (t *TestStorage) GetUserList() ([]models.User, error) {
 	return res, nil
 }
 
-func (t *TestStorage) GetUser(id string) (*models.User, error) {
+func (t *TestStorage) GetUser(id string) (models.User, error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	for _, u := range t.Users {
 		if u.Id == id {
-			return &u, nil
+			return u, nil
 		}
 	}
-	return nil, fmt.Errorf("no user with id %s", id)
+	return models.User{}, fmt.Errorf("no user with id %s", id)
+}
+
+func (t *TestStorage) DeleteUser(id string) error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	for idx, u := range t.Users {
+		if u.Id == id {
+			t.Users = append(t.Users[:idx], t.Users[idx+1:]...)
+			return nil
+		}
+	}
+	return fmt.Errorf("no user with id %s", id)
 }
 
 func (t *TestStorage) GetProjectList() ([]models.Project, error) {
@@ -129,70 +140,55 @@ func (t *TestStorage) GetUserProjects(userId string) ([]models.Project, error) {
 	return res, nil
 }
 
-func (t *TestStorage) GetProject(id uint64) (*models.Project, error) {
+func (t *TestStorage) GetProject(id uint64) (models.Project, error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	for _, p := range t.Projects {
 		if p.Id == id {
-			return &p, nil
+			return p, nil
 		}
 	}
-	return nil, fmt.Errorf("no project with id %v", id)
+	return models.Project{}, fmt.Errorf("no project with id %v", id)
 }
 
-func (t *TestStorage) AddUser(user *models.User) error {
+func (t *TestStorage) CreateUser(user models.User) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
-	t.Users = append(t.Users, *user)
+	t.Users = append(t.Users, user)
 	return nil
 }
 
-func (t *TestStorage) UpdateUserNonce(id string, nonce uint64) error {
+func (t *TestStorage) UpdateUser(user models.User) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	for _, u := range t.Users {
-		if u.Id == id {
-			u.Nonce = nonce
+		if u.Id == user.Id {
+			u = user
 			return nil
 		}
 	}
-	return fmt.Errorf("no user with id %s", id)
+	return fmt.Errorf("no user with id %v", user.Id)
 }
 
-func (t *TestStorage) CreateProject(title string, description string, tags models.Tags, owner string, deadline time.Duration, price uint64) (uint64, error) {
+func (t *TestStorage) CreateProject(project models.Project) (uint64, error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
-	project := models.Project{
-		Id:          t.MaxProjectId + 1,
-		Title:       title,
-		Description: description,
-		Tags:        tags,
-		Created:     time.Now(),
-		Status:      models.Open,
-		Owner:       owner,
-		Deadline:    deadline,
-		Price:       price,
-	}
+	project.Id = t.MaxProjectId + 1
 	t.Projects = append(t.Projects, project)
 	t.MaxProjectId++
 	return project.Id, nil
 }
 
-func (t *TestStorage) UpdateProject(projectId uint64, title string, description string, tags models.Tags,
-	deadline time.Duration, price uint64) error {
+func (t *TestStorage) UpdateProject(project models.Project) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	for _, p := range t.Projects {
-		if p.Id == projectId {
-			p.Title = title
-			p.Description = description
-			p.Tags = tags
-			p.Deadline = deadline
-			p.Price = price
+		if p.Id == project.Id {
+			p = project
 			return nil
 		}
 	}
-	return fmt.Errorf("no project with id %d", projectId)
+	return fmt.Errorf("no project with id %d", project.Id)
 }
 
 func (t *TestStorage) DeleteProject(projectId uint64) error {
@@ -207,51 +203,43 @@ func (t *TestStorage) DeleteProject(projectId uint64) error {
 	return fmt.Errorf("no project with id %d", projectId)
 }
 
-func (t *TestStorage) CreateBid(projectId uint64, fromUser string, price uint64, deadline time.Duration,
-	message string) (uint64, error) {
+func (t *TestStorage) CreateBid(bid models.Bid) (uint64, error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	found := false
 	for _, p := range t.Projects {
-		if p.Id == projectId {
+		if p.Id == bid.Project {
 			found = true
 		}
 	}
 	if !found {
-		return 0, fmt.Errorf("no project with id %d", projectId)
+		return 0, fmt.Errorf("no project with id %v", bid.Project)
 	}
 	found = false
 	for _, u := range t.Users {
-		if u.Id == fromUser {
+		if u.Id == bid.User {
 			found = true
 		}
 	}
 	if !found {
-		return 0, fmt.Errorf("no user with id %d", fromUser)
+		return 0, fmt.Errorf("no user with id %v", bid.User)
 	}
 
-	bid := models.Bid{
-		Id:       t.MaxBidId + 1,
-		Project:  projectId,
-		User:     fromUser,
-		Deadline: deadline,
-		Price:    price,
-		Message:  message,
-	}
+	bid.Id = t.MaxBidId + 1
 	t.Bids = append(t.Bids, bid)
 	t.MaxBidId++
 	return bid.Id, nil
 }
 
-func (t *TestStorage) GetBid(id uint64) (*models.Bid, error) {
+func (t *TestStorage) GetBid(id uint64) (models.Bid, error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	for _, b := range t.Bids {
 		if b.Id == id {
-			return &b, nil
+			return b, nil
 		}
 	}
-	return nil, fmt.Errorf("no bid with id %v", id)
+	return models.Bid{}, fmt.Errorf("no bid with id %v", id)
 }
 
 func (t *TestStorage) GetProjectBids(projectId uint64) ([]models.Bid, error) {
@@ -266,18 +254,16 @@ func (t *TestStorage) GetProjectBids(projectId uint64) ([]models.Bid, error) {
 	return res, nil
 }
 
-func (t *TestStorage) UpdateBid(id uint64, price uint64, deadline time.Duration, message string) error {
+func (t *TestStorage) UpdateBid(bid models.Bid) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	for _, b := range t.Bids {
-		if b.Id == id {
-			b.Deadline = deadline
-			b.Price = price
-			b.Message = message
+		if b.Id == bid.Id {
+			b = bid
 			return nil
 		}
 	}
-	return fmt.Errorf("no bid with id %d", id)
+	return fmt.Errorf("no bid with id %v", bid.Id)
 }
 
 func (t *TestStorage) DeleteBid(id uint64) error {
@@ -290,76 +276,6 @@ func (t *TestStorage) DeleteBid(id uint64) error {
 		}
 	}
 	return fmt.Errorf("no bid with id %d", id)
-}
-
-func (t *TestStorage) AcceptBid(id uint64) error {
-	t.lock.Lock()
-	defer t.lock.Unlock()
-	for idx, b := range t.Bids {
-		if b.Id == id {
-			found := false
-			for _, p := range t.Projects {
-				if p.Id == b.Project {
-					p.Contractor = b.User
-					p.Deadline = b.Deadline
-					p.Price = b.Price
-					p.Status = models.InWork
-					found = true
-				}
-			}
-			if !found {
-				return fmt.Errorf("no project with id %d", b.Project)
-			}
-			t.Bids = append(t.Bids[:idx], t.Bids[idx+1:]...)
-			return nil
-		}
-	}
-	return fmt.Errorf("no bid with id %d", id)
-}
-
-func (t *TestStorage) CancelProject(id uint64) error {
-	t.lock.Lock()
-	defer t.lock.Unlock()
-	for _, p := range t.Projects {
-		if p.Id == id {
-			if p.Status == models.InWork || p.Status == models.InReview {
-				p.Status = models.Canceled
-				return nil
-			}
-			return fmt.Errorf("invalid project status %d", p.Status)
-		}
-	}
-	return fmt.Errorf("no project with id %d", id)
-}
-
-func (t *TestStorage) SetProjectReady(id uint64) error {
-	t.lock.Lock()
-	defer t.lock.Unlock()
-	for _, p := range t.Projects {
-		if p.Id == id {
-			if p.Status == models.InWork {
-				p.Status = models.InReview
-				return nil
-			}
-			return fmt.Errorf("invalid project status %d", p.Status)
-		}
-	}
-	return fmt.Errorf("no project with id %d", id)
-}
-
-func (t *TestStorage) AcceptProject(id uint64) error {
-	t.lock.Lock()
-	defer t.lock.Unlock()
-	for _, p := range t.Projects {
-		if p.Id == id {
-			if p.Status == models.InReview {
-				p.Status = models.Completed
-				return nil
-			}
-			return fmt.Errorf("invalid project status %d", p.Status)
-		}
-	}
-	return fmt.Errorf("no project with id %d", id)
 }
 
 func (t *TestStorage) Close() error {
