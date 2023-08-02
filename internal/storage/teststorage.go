@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"fmt"
 	"github.com/sgladkov/tortuga/internal/models"
 	"sync"
@@ -49,6 +50,8 @@ func NewTestStorage(users []models.User, projects []models.Project, bids []model
 }
 
 func (t *TestStorage) BeginTx() error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	if t.dataCopy != nil {
 		return fmt.Errorf("transaction is open already")
 	}
@@ -64,6 +67,8 @@ func (t *TestStorage) BeginTx() error {
 }
 
 func (t *TestStorage) CommitTx() error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	if t.dataCopy == nil {
 		return fmt.Errorf("transaction is closed already")
 	}
@@ -72,6 +77,8 @@ func (t *TestStorage) CommitTx() error {
 }
 
 func (t *TestStorage) RollbackTx() error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	if t.dataCopy == nil {
 		return fmt.Errorf("transaction is closed already")
 	}
@@ -85,7 +92,7 @@ func (t *TestStorage) RollbackTx() error {
 	return nil
 }
 
-func (t *TestStorage) GetUserList() ([]models.User, error) {
+func (t *TestStorage) GetUserList(_ context.Context) ([]models.User, error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	var res []models.User
@@ -95,7 +102,7 @@ func (t *TestStorage) GetUserList() ([]models.User, error) {
 	return res, nil
 }
 
-func (t *TestStorage) GetUser(id string) (models.User, error) {
+func (t *TestStorage) GetUser(_ context.Context, id string) (models.User, error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	for _, u := range t.Users {
@@ -106,7 +113,7 @@ func (t *TestStorage) GetUser(id string) (models.User, error) {
 	return models.User{}, fmt.Errorf("no user with id %s", id)
 }
 
-func (t *TestStorage) DeleteUser(id string) error {
+func (t *TestStorage) DeleteUser(_ context.Context, id string) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	for idx, u := range t.Users {
@@ -118,7 +125,7 @@ func (t *TestStorage) DeleteUser(id string) error {
 	return fmt.Errorf("no user with id %s", id)
 }
 
-func (t *TestStorage) GetProjectList() ([]models.Project, error) {
+func (t *TestStorage) GetProjectList(_ context.Context) ([]models.Project, error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	var res []models.Project
@@ -128,7 +135,7 @@ func (t *TestStorage) GetProjectList() ([]models.Project, error) {
 	return res, nil
 }
 
-func (t *TestStorage) GetUserProjects(userId string) ([]models.Project, error) {
+func (t *TestStorage) GetUserProjects(_ context.Context, userId string) ([]models.Project, error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	var res []models.Project
@@ -140,7 +147,7 @@ func (t *TestStorage) GetUserProjects(userId string) ([]models.Project, error) {
 	return res, nil
 }
 
-func (t *TestStorage) GetProject(id uint64) (models.Project, error) {
+func (t *TestStorage) GetProject(_ context.Context, id uint64) (models.Project, error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	for _, p := range t.Projects {
@@ -151,14 +158,14 @@ func (t *TestStorage) GetProject(id uint64) (models.Project, error) {
 	return models.Project{}, fmt.Errorf("no project with id %v", id)
 }
 
-func (t *TestStorage) CreateUser(user models.User) error {
+func (t *TestStorage) CreateUser(_ context.Context, user models.User) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	t.Users = append(t.Users, user)
 	return nil
 }
 
-func (t *TestStorage) UpdateUser(user models.User) error {
+func (t *TestStorage) UpdateUser(_ context.Context, user models.User) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	for _, u := range t.Users {
@@ -170,7 +177,7 @@ func (t *TestStorage) UpdateUser(user models.User) error {
 	return fmt.Errorf("no user with id %v", user.Id)
 }
 
-func (t *TestStorage) CreateProject(project models.Project) (uint64, error) {
+func (t *TestStorage) CreateProject(_ context.Context, project models.Project) (uint64, error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	project.Id = t.MaxProjectId + 1
@@ -179,7 +186,7 @@ func (t *TestStorage) CreateProject(project models.Project) (uint64, error) {
 	return project.Id, nil
 }
 
-func (t *TestStorage) UpdateProject(project models.Project) error {
+func (t *TestStorage) UpdateProject(_ context.Context, project models.Project) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	for _, p := range t.Projects {
@@ -191,7 +198,7 @@ func (t *TestStorage) UpdateProject(project models.Project) error {
 	return fmt.Errorf("no project with id %d", project.Id)
 }
 
-func (t *TestStorage) DeleteProject(projectId uint64) error {
+func (t *TestStorage) DeleteProject(_ context.Context, projectId uint64) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	for idx, p := range t.Projects {
@@ -203,7 +210,7 @@ func (t *TestStorage) DeleteProject(projectId uint64) error {
 	return fmt.Errorf("no project with id %d", projectId)
 }
 
-func (t *TestStorage) CreateBid(bid models.Bid) (uint64, error) {
+func (t *TestStorage) CreateBid(_ context.Context, bid models.Bid) (uint64, error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	found := false
@@ -231,7 +238,7 @@ func (t *TestStorage) CreateBid(bid models.Bid) (uint64, error) {
 	return bid.Id, nil
 }
 
-func (t *TestStorage) GetBid(id uint64) (models.Bid, error) {
+func (t *TestStorage) GetBid(_ context.Context, id uint64) (models.Bid, error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	for _, b := range t.Bids {
@@ -242,7 +249,7 @@ func (t *TestStorage) GetBid(id uint64) (models.Bid, error) {
 	return models.Bid{}, fmt.Errorf("no bid with id %v", id)
 }
 
-func (t *TestStorage) GetProjectBids(projectId uint64) ([]models.Bid, error) {
+func (t *TestStorage) GetProjectBids(_ context.Context, projectId uint64) ([]models.Bid, error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	var res []models.Bid
@@ -254,7 +261,7 @@ func (t *TestStorage) GetProjectBids(projectId uint64) ([]models.Bid, error) {
 	return res, nil
 }
 
-func (t *TestStorage) UpdateBid(bid models.Bid) error {
+func (t *TestStorage) UpdateBid(_ context.Context, bid models.Bid) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	for _, b := range t.Bids {
@@ -266,7 +273,7 @@ func (t *TestStorage) UpdateBid(bid models.Bid) error {
 	return fmt.Errorf("no bid with id %v", bid.Id)
 }
 
-func (t *TestStorage) DeleteBid(id uint64) error {
+func (t *TestStorage) DeleteBid(_ context.Context, id uint64) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	for idx, b := range t.Bids {

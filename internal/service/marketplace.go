@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"github.com/sgladkov/tortuga/internal/models"
 	"github.com/sgladkov/tortuga/internal/storage"
@@ -17,43 +18,43 @@ func NewMarketplace(s storage.Storage) *Marketplace {
 	}
 }
 
-func (m *Marketplace) GetUserList() ([]models.User, error) {
-	return m.storage.GetUserList()
+func (m *Marketplace) GetUserList(ctx context.Context) ([]models.User, error) {
+	return m.storage.GetUserList(ctx)
 }
 
-func (m *Marketplace) GetUser(id string) (models.User, error) {
-	return m.storage.GetUser(id)
+func (m *Marketplace) GetUser(ctx context.Context, id string) (models.User, error) {
+	return m.storage.GetUser(ctx, id)
 }
 
-func (m *Marketplace) GetProjectList() ([]models.Project, error) {
-	return m.storage.GetProjectList()
+func (m *Marketplace) GetProjectList(ctx context.Context) ([]models.Project, error) {
+	return m.storage.GetProjectList(ctx)
 }
 
-func (m *Marketplace) GetUserProjects(userId string) ([]models.Project, error) {
-	return m.storage.GetUserProjects(userId)
+func (m *Marketplace) GetUserProjects(ctx context.Context, userId string) ([]models.Project, error) {
+	return m.storage.GetUserProjects(ctx, userId)
 }
 
-func (m *Marketplace) GetProject(id uint64) (models.Project, error) {
-	return m.storage.GetProject(id)
+func (m *Marketplace) GetProject(ctx context.Context, id uint64) (models.Project, error) {
+	return m.storage.GetProject(ctx, id)
 }
 
-func (m *Marketplace) AddUser(user models.User) error {
-	return m.storage.CreateUser(user)
+func (m *Marketplace) AddUser(ctx context.Context, user models.User) error {
+	return m.storage.CreateUser(ctx, user)
 }
 
-func (m *Marketplace) UpdateUserNonce(id string, nonce uint64) error {
+func (m *Marketplace) UpdateUserNonce(ctx context.Context, id string, nonce uint64) error {
 	err := m.storage.BeginTx()
 	if err != nil {
 		return err
 	}
 	defer m.storage.RollbackTx()
 
-	user, err := m.storage.GetUser(id)
+	user, err := m.storage.GetUser(ctx, id)
 	if err != nil {
 		return err
 	}
 	user.Nonce = nonce
-	err = m.storage.UpdateUser(user)
+	err = m.storage.UpdateUser(ctx, user)
 	if err != nil {
 		return err
 	}
@@ -61,7 +62,7 @@ func (m *Marketplace) UpdateUserNonce(id string, nonce uint64) error {
 	return m.storage.CommitTx()
 }
 
-func (m *Marketplace) CreateProject(title string, description string, tags models.Tags, owner string, deadline time.Duration,
+func (m *Marketplace) CreateProject(ctx context.Context, title string, description string, tags models.Tags, owner string, deadline time.Duration,
 	price uint64) (uint64, error) {
 	p := models.Project{
 		Title:       title,
@@ -73,10 +74,10 @@ func (m *Marketplace) CreateProject(title string, description string, tags model
 		Deadline:    deadline,
 		Price:       price,
 	}
-	return m.storage.CreateProject(p)
+	return m.storage.CreateProject(ctx, p)
 }
 
-func (m *Marketplace) UpdateProject(projectId uint64, title string, description string, tags models.Tags, deadline time.Duration,
+func (m *Marketplace) UpdateProject(ctx context.Context, projectId uint64, title string, description string, tags models.Tags, deadline time.Duration,
 	price uint64) error {
 	err := m.storage.BeginTx()
 	if err != nil {
@@ -84,7 +85,7 @@ func (m *Marketplace) UpdateProject(projectId uint64, title string, description 
 	}
 	defer m.storage.RollbackTx()
 
-	project, err := m.storage.GetProject(projectId)
+	project, err := m.storage.GetProject(ctx, projectId)
 	if err != nil {
 		return err
 	}
@@ -93,7 +94,7 @@ func (m *Marketplace) UpdateProject(projectId uint64, title string, description 
 	project.Tags = tags
 	project.Deadline = deadline
 	project.Price = price
-	err = m.storage.UpdateProject(project)
+	err = m.storage.UpdateProject(ctx, project)
 	if err != nil {
 		return err
 	}
@@ -101,11 +102,11 @@ func (m *Marketplace) UpdateProject(projectId uint64, title string, description 
 	return m.storage.CommitTx()
 }
 
-func (m *Marketplace) DeleteProject(projectId uint64) error {
-	return m.storage.DeleteProject(projectId)
+func (m *Marketplace) DeleteProject(ctx context.Context, projectId uint64) error {
+	return m.storage.DeleteProject(ctx, projectId)
 }
 
-func (m *Marketplace) CreateBid(projectId uint64, fromUser string, price uint64, deadline time.Duration,
+func (m *Marketplace) CreateBid(ctx context.Context, projectId uint64, fromUser string, price uint64, deadline time.Duration,
 	message string) (uint64, error) {
 	err := m.storage.BeginTx()
 	if err != nil {
@@ -113,11 +114,11 @@ func (m *Marketplace) CreateBid(projectId uint64, fromUser string, price uint64,
 	}
 	defer m.storage.RollbackTx()
 
-	_, err = m.storage.GetProject(projectId)
+	_, err = m.storage.GetProject(ctx, projectId)
 	if err != nil {
 		return 0, fmt.Errorf("no project %v", projectId)
 	}
-	_, err = m.storage.GetUser(fromUser)
+	_, err = m.storage.GetUser(ctx, fromUser)
 	if err != nil {
 		return 0, fmt.Errorf("no user %v", fromUser)
 	}
@@ -128,7 +129,7 @@ func (m *Marketplace) CreateBid(projectId uint64, fromUser string, price uint64,
 		Price:    price,
 		Message:  message,
 	}
-	bidId, err := m.storage.CreateBid(bid)
+	bidId, err := m.storage.CreateBid(ctx, bid)
 	if err != nil {
 		return 0, err
 	}
@@ -140,29 +141,29 @@ func (m *Marketplace) CreateBid(projectId uint64, fromUser string, price uint64,
 	return bidId, nil
 }
 
-func (m *Marketplace) GetBid(id uint64) (models.Bid, error) {
-	return m.storage.GetBid(id)
+func (m *Marketplace) GetBid(ctx context.Context, id uint64) (models.Bid, error) {
+	return m.storage.GetBid(ctx, id)
 }
 
-func (m *Marketplace) GetProjectBids(projectId uint64) ([]models.Bid, error) {
-	return m.storage.GetProjectBids(projectId)
+func (m *Marketplace) GetProjectBids(ctx context.Context, projectId uint64) ([]models.Bid, error) {
+	return m.storage.GetProjectBids(ctx, projectId)
 }
 
-func (m *Marketplace) UpdateBid(id uint64, price uint64, deadline time.Duration, message string) error {
+func (m *Marketplace) UpdateBid(ctx context.Context, id uint64, price uint64, deadline time.Duration, message string) error {
 	err := m.storage.BeginTx()
 	if err != nil {
 		return err
 	}
 	defer m.storage.RollbackTx()
 
-	bid, err := m.storage.GetBid(id)
+	bid, err := m.storage.GetBid(ctx, id)
 	if err != nil {
 		return err
 	}
 	bid.Price = price
 	bid.Deadline = deadline
 	bid.Message = message
-	err = m.storage.UpdateBid(bid)
+	err = m.storage.UpdateBid(ctx, bid)
 	if err != nil {
 		return err
 	}
@@ -170,22 +171,22 @@ func (m *Marketplace) UpdateBid(id uint64, price uint64, deadline time.Duration,
 	return m.storage.CommitTx()
 }
 
-func (m *Marketplace) DeleteBid(id uint64) error {
-	return m.storage.DeleteBid(id)
+func (m *Marketplace) DeleteBid(ctx context.Context, id uint64) error {
+	return m.storage.DeleteBid(ctx, id)
 }
 
-func (m *Marketplace) AcceptBid(id uint64) error {
+func (m *Marketplace) AcceptBid(ctx context.Context, id uint64) error {
 	err := m.storage.BeginTx()
 	if err != nil {
 		return err
 	}
 	defer m.storage.RollbackTx()
 
-	bid, err := m.storage.GetBid(id)
+	bid, err := m.storage.GetBid(ctx, id)
 	if err != nil {
 		return err
 	}
-	project, err := m.storage.GetProject(bid.Project)
+	project, err := m.storage.GetProject(ctx, bid.Project)
 	if err != nil {
 		return err
 	}
@@ -194,11 +195,11 @@ func (m *Marketplace) AcceptBid(id uint64) error {
 	project.Deadline = bid.Deadline
 	project.Price = bid.Price
 	project.Status = models.InWork
-	err = m.storage.UpdateProject(project)
+	err = m.storage.UpdateProject(ctx, project)
 	if err != nil {
 		return err
 	}
-	err = m.storage.DeleteBid(id)
+	err = m.storage.DeleteBid(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -206,14 +207,14 @@ func (m *Marketplace) AcceptBid(id uint64) error {
 	return m.storage.CommitTx()
 }
 
-func (m *Marketplace) CancelProject(id uint64) error {
+func (m *Marketplace) CancelProject(ctx context.Context, id uint64) error {
 	err := m.storage.BeginTx()
 	if err != nil {
 		return err
 	}
 	defer m.storage.RollbackTx()
 
-	project, err := m.storage.GetProject(id)
+	project, err := m.storage.GetProject(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -223,7 +224,7 @@ func (m *Marketplace) CancelProject(id uint64) error {
 		return fmt.Errorf("invalid project status %d", project.Status)
 	}
 
-	err = m.storage.UpdateProject(project)
+	err = m.storage.UpdateProject(ctx, project)
 	if err != nil {
 		return err
 	}
@@ -231,14 +232,14 @@ func (m *Marketplace) CancelProject(id uint64) error {
 	return m.storage.CommitTx()
 }
 
-func (m *Marketplace) SetProjectReady(id uint64) error {
+func (m *Marketplace) SetProjectReady(ctx context.Context, id uint64) error {
 	err := m.storage.BeginTx()
 	if err != nil {
 		return err
 	}
 	defer m.storage.RollbackTx()
 
-	project, err := m.storage.GetProject(id)
+	project, err := m.storage.GetProject(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -248,7 +249,7 @@ func (m *Marketplace) SetProjectReady(id uint64) error {
 		return fmt.Errorf("invalid project status %d", project.Status)
 	}
 
-	err = m.storage.UpdateProject(project)
+	err = m.storage.UpdateProject(ctx, project)
 	if err != nil {
 		return err
 	}
@@ -256,14 +257,14 @@ func (m *Marketplace) SetProjectReady(id uint64) error {
 	return m.storage.CommitTx()
 }
 
-func (m *Marketplace) AcceptProject(id uint64) error {
+func (m *Marketplace) AcceptProject(ctx context.Context, id uint64) error {
 	err := m.storage.BeginTx()
 	if err != nil {
 		return err
 	}
 	defer m.storage.RollbackTx()
 
-	project, err := m.storage.GetProject(id)
+	project, err := m.storage.GetProject(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -273,7 +274,7 @@ func (m *Marketplace) AcceptProject(id uint64) error {
 		return fmt.Errorf("invalid project status %d", project.Status)
 	}
 
-	err = m.storage.UpdateProject(project)
+	err = m.storage.UpdateProject(ctx, project)
 	if err != nil {
 		return err
 	}

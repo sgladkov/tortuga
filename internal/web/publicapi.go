@@ -24,8 +24,8 @@ func configInfo(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-func userList(w http.ResponseWriter, _ *http.Request) {
-	users, err := marketplace.GetUserList()
+func userList(w http.ResponseWriter, r *http.Request) {
+	users, err := marketplace.GetUserList(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -41,7 +41,7 @@ func userList(w http.ResponseWriter, _ *http.Request) {
 
 func userInfo(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	user, err := marketplace.GetUser(id)
+	user, err := marketplace.GetUser(r.Context(), id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -57,7 +57,7 @@ func userInfo(w http.ResponseWriter, r *http.Request) {
 
 func userHistory(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	projects, err := marketplace.GetUserProjects(id)
+	projects, err := marketplace.GetUserProjects(r.Context(), id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -71,8 +71,8 @@ func userHistory(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func projectList(w http.ResponseWriter, _ *http.Request) {
-	projects, err := marketplace.GetProjectList()
+func projectList(w http.ResponseWriter, r *http.Request) {
+	projects, err := marketplace.GetProjectList(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -93,7 +93,7 @@ func projectInfo(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	project, err := marketplace.GetProject(id)
+	project, err := marketplace.GetProject(r.Context(), id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -113,7 +113,7 @@ func projectBids(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	bids, err := marketplace.GetProjectBids(id)
+	bids, err := marketplace.GetProjectBids(r.Context(), id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -134,7 +134,7 @@ func bidInfo(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	bid, err := marketplace.GetBid(id)
+	bid, err := marketplace.GetBid(r.Context(), id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

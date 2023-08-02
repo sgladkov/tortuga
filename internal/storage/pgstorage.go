@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"github.com/sgladkov/tortuga/internal/logger"
@@ -9,10 +10,10 @@ import (
 )
 
 type DBTX interface {
-	Exec(string, ...interface{}) (sql.Result, error)
-	Prepare(string) (*sql.Stmt, error)
-	Query(string, ...interface{}) (*sql.Rows, error)
-	QueryRow(string, ...interface{}) *sql.Row
+	ExecContext(context.Context, string, ...interface{}) (sql.Result, error)
+	PrepareContext(context.Context, string) (*sql.Stmt, error)
+	QueryContext(context.Context, string, ...interface{}) (*sql.Rows, error)
+	QueryRowContext(context.Context, string, ...interface{}) *sql.Row
 }
 
 type PgStorage struct {
@@ -147,8 +148,8 @@ func (s *PgStorage) RollbackTx() error {
 	return nil
 }
 
-func (s *PgStorage) GetUserList() ([]models.User, error) {
-	rowsUsers, err := s.exec.Query("SELECT id, nickname, description, nonce, registered, status, tags, " +
+func (s *PgStorage) GetUserList(ctx context.Context) ([]models.User, error) {
+	rowsUsers, err := s.exec.QueryContext(ctx, "SELECT id, nickname, description, nonce, registered, status, tags, "+
 		"rating, account FROM Users")
 	if err != nil {
 		logger.Log.Error("Failed to query Users data", zap.Error(err))
@@ -179,9 +180,9 @@ func (s *PgStorage) GetUserList() ([]models.User, error) {
 	return res, nil
 }
 
-func (s *PgStorage) GetUser(id string) (models.User, error) {
+func (s *PgStorage) GetUser(ctx context.Context, id string) (models.User, error) {
 	// TODO: set explicit field set and order in query
-	stmtUser, err := s.exec.Prepare("SELECT * FROM Users WHERE id = $1")
+	stmtUser, err := s.exec.PrepareContext(ctx, "SELECT * FROM Users WHERE id = $1")
 	if err != nil {
 		logger.Log.Error("Failed to prepare query", zap.Error(err))
 		return models.User{}, err
@@ -192,7 +193,7 @@ func (s *PgStorage) GetUser(id string) (models.User, error) {
 			logger.Log.Error("Failed to close statement", zap.Error(err))
 		}
 	}()
-	rowUser := stmtUser.QueryRow(id)
+	rowUser := stmtUser.QueryRowContext(ctx, id)
 	if rowUser.Err() != nil {
 		logger.Log.Error("Failed to query project data", zap.Error(err))
 		return models.User{}, err
@@ -207,8 +208,8 @@ func (s *PgStorage) GetUser(id string) (models.User, error) {
 	return res, nil
 }
 
-func (s *PgStorage) GetProjectList() ([]models.Project, error) {
-	rowsProjects, err := s.exec.Query("SELECT id, title, description, tags, created, status, owner, " +
+func (s *PgStorage) GetProjectList(ctx context.Context) ([]models.Project, error) {
+	rowsProjects, err := s.exec.QueryContext(ctx, "SELECT id, title, description, tags, created, status, owner, "+
 		"contractor, started, deadline, price FROM Projects")
 	if err != nil {
 		logger.Log.Error("Failed to query Users data", zap.Error(err))
@@ -240,8 +241,8 @@ func (s *PgStorage) GetProjectList() ([]models.Project, error) {
 	return res, nil
 }
 
-func (s *PgStorage) GetUserProjects(userId string) ([]models.Project, error) {
-	stmtProjects, err := s.exec.Prepare("SELECT id, title, description, tags, created, status, owner, " +
+func (s *PgStorage) GetUserProjects(ctx context.Context, userId string) ([]models.Project, error) {
+	stmtProjects, err := s.exec.PrepareContext(ctx, "SELECT id, title, description, tags, created, status, owner, "+
 		"contractor, started, deadline, price  FROM Projects WHERE owner = $1")
 	if err != nil {
 		logger.Log.Error("Failed to prepare query", zap.Error(err))
@@ -253,7 +254,7 @@ func (s *PgStorage) GetUserProjects(userId string) ([]models.Project, error) {
 			logger.Log.Error("Failed to close statement", zap.Error(err))
 		}
 	}()
-	rowsProjects, err := stmtProjects.Query(userId)
+	rowsProjects, err := stmtProjects.QueryContext(ctx, userId)
 	if err != nil {
 		logger.Log.Error("Failed to query Users data", zap.Error(err))
 		return nil, err
@@ -284,9 +285,9 @@ func (s *PgStorage) GetUserProjects(userId string) ([]models.Project, error) {
 	return res, nil
 }
 
-func (s *PgStorage) GetProject(id uint64) (models.Project, error) {
+func (s *PgStorage) GetProject(ctx context.Context, id uint64) (models.Project, error) {
 	// TODO: set explicit field set and order in query
-	stmtProject, err := s.exec.Prepare("SELECT * FROM Projects WHERE id = $1")
+	stmtProject, err := s.exec.PrepareContext(ctx, "SELECT * FROM Projects WHERE id = $1")
 	if err != nil {
 		logger.Log.Error("Failed to prepare query", zap.Error(err))
 		return models.Project{}, err
@@ -297,7 +298,7 @@ func (s *PgStorage) GetProject(id uint64) (models.Project, error) {
 			logger.Log.Error("Failed to close statement", zap.Error(err))
 		}
 	}()
-	rowProject := stmtProject.QueryRow(id)
+	rowProject := stmtProject.QueryRowContext(ctx, id)
 	if err = rowProject.Err(); err != nil {
 		logger.Log.Error("Failed to query project data", zap.Error(err))
 		return models.Project{}, err
@@ -312,8 +313,8 @@ func (s *PgStorage) GetProject(id uint64) (models.Project, error) {
 	return res, nil
 }
 
-func (s *PgStorage) CreateUser(user models.User) error {
-	stmtUser, err := s.exec.Prepare("INSERT INTO Users (id, nickname, description, nonce, registered, " +
+func (s *PgStorage) CreateUser(ctx context.Context, user models.User) error {
+	stmtUser, err := s.exec.PrepareContext(ctx, "INSERT INTO Users (id, nickname, description, nonce, registered, "+
 		"status, tags, rating, account) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9)")
 	if err != nil {
 		logger.Log.Error("Failed to prepare query", zap.Error(err))
@@ -326,7 +327,7 @@ func (s *PgStorage) CreateUser(user models.User) error {
 		}
 	}()
 
-	_, err = stmtUser.Exec(user.Id, user.Nickname, user.Description, user.Nonce, user.Registered,
+	_, err = stmtUser.ExecContext(ctx, user.Id, user.Nickname, user.Description, user.Nonce, user.Registered,
 		user.Status, user.Tags, user.Rating, user.Account)
 	if err != nil {
 		logger.Log.Error("Failed to execute query", zap.Error(err))
@@ -336,8 +337,8 @@ func (s *PgStorage) CreateUser(user models.User) error {
 	return nil
 }
 
-func (s *PgStorage) UpdateUser(user models.User) error {
-	stmtUser, err := s.exec.Prepare("UPDATE Users SET nickname=$1, description=$2, nonce=$3, registered=$4, " +
+func (s *PgStorage) UpdateUser(ctx context.Context, user models.User) error {
+	stmtUser, err := s.exec.PrepareContext(ctx, "UPDATE Users SET nickname=$1, description=$2, nonce=$3, registered=$4, "+
 		"status=$5, tags=$6, rating=$7, account=$8 WHERE id=$9")
 	if err != nil {
 		logger.Log.Error("Failed to prepare query", zap.Error(err))
@@ -350,7 +351,7 @@ func (s *PgStorage) UpdateUser(user models.User) error {
 		}
 	}()
 
-	_, err = stmtUser.Exec(user.Nickname, user.Description, user.Nonce, user.Registered, user.Status,
+	_, err = stmtUser.ExecContext(ctx, user.Nickname, user.Description, user.Nonce, user.Registered, user.Status,
 		user.Tags, user.Rating, user.Account, user.Id)
 	if err != nil {
 		logger.Log.Error("Failed to execute query", zap.Error(err))
@@ -360,8 +361,8 @@ func (s *PgStorage) UpdateUser(user models.User) error {
 	return nil
 }
 
-func (s *PgStorage) CreateProject(project models.Project) (uint64, error) {
-	stmtUser, err := s.exec.Prepare("INSERT INTO Projects (title, description, tags, created, status, owner, deadline, price) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id")
+func (s *PgStorage) CreateProject(ctx context.Context, project models.Project) (uint64, error) {
+	stmtUser, err := s.exec.PrepareContext(ctx, "INSERT INTO Projects (title, description, tags, created, status, owner, deadline, price) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id")
 	if err != nil {
 		logger.Log.Error("Failed to prepare query", zap.Error(err))
 		return 0, err
@@ -373,7 +374,7 @@ func (s *PgStorage) CreateProject(project models.Project) (uint64, error) {
 		}
 	}()
 
-	row := stmtUser.QueryRow(project.Title, project.Description, project.Tags, project.Created, project.Status, project.Owner, project.Deadline, project.Price)
+	row := stmtUser.QueryRowContext(ctx, project.Title, project.Description, project.Tags, project.Created, project.Status, project.Owner, project.Deadline, project.Price)
 	if err = row.Err(); err != nil {
 		logger.Log.Error("Failed to execute query", zap.Error(err))
 		return 0, err
@@ -388,8 +389,8 @@ func (s *PgStorage) CreateProject(project models.Project) (uint64, error) {
 	return id, nil
 }
 
-func (s *PgStorage) UpdateProject(project models.Project) error {
-	stmtUser, err := s.exec.Prepare("UPDATE Projects SET title=$1, description=$2, tags=$3, created=$4, " +
+func (s *PgStorage) UpdateProject(ctx context.Context, project models.Project) error {
+	stmtUser, err := s.exec.PrepareContext(ctx, "UPDATE Projects SET title=$1, description=$2, tags=$3, created=$4, "+
 		"status=$5, owner=$6, contractor=$7, started=$8, deadline=$9, price=$10 WHERE id=$11")
 	if err != nil {
 		logger.Log.Error("Failed to prepare query", zap.Error(err))
@@ -402,7 +403,7 @@ func (s *PgStorage) UpdateProject(project models.Project) error {
 		}
 	}()
 
-	_, err = stmtUser.Exec(project.Title, project.Description, project.Tags, project.Created, project.Status,
+	_, err = stmtUser.ExecContext(ctx, project.Title, project.Description, project.Tags, project.Created, project.Status,
 		project.Owner, project.Contractor, project.Started, project.Deadline, project.Price, project.Id)
 	if err != nil {
 		logger.Log.Error("Failed to execute query", zap.Error(err))
@@ -412,8 +413,8 @@ func (s *PgStorage) UpdateProject(project models.Project) error {
 	return nil
 }
 
-func (s *PgStorage) DeleteUser(id string) error {
-	stmtUser, err := s.exec.Prepare("DELETE FROM Users WHERE id = $1")
+func (s *PgStorage) DeleteUser(ctx context.Context, id string) error {
+	stmtUser, err := s.exec.PrepareContext(ctx, "DELETE FROM Users WHERE id = $1")
 	if err != nil {
 		logger.Log.Error("Failed to prepare query", zap.Error(err))
 		return err
@@ -425,7 +426,7 @@ func (s *PgStorage) DeleteUser(id string) error {
 		}
 	}()
 
-	_, err = stmtUser.Exec(id)
+	_, err = stmtUser.ExecContext(ctx, id)
 	if err != nil {
 		logger.Log.Error("Failed to execute query", zap.Error(err))
 		return err
@@ -434,8 +435,8 @@ func (s *PgStorage) DeleteUser(id string) error {
 	return nil
 }
 
-func (s *PgStorage) DeleteProject(projectId uint64) error {
-	stmtUser, err := s.exec.Prepare("DELETE FROM Projects WHERE id = $1")
+func (s *PgStorage) DeleteProject(ctx context.Context, projectId uint64) error {
+	stmtUser, err := s.exec.PrepareContext(ctx, "DELETE FROM Projects WHERE id = $1")
 	if err != nil {
 		logger.Log.Error("Failed to prepare query", zap.Error(err))
 		return err
@@ -447,7 +448,7 @@ func (s *PgStorage) DeleteProject(projectId uint64) error {
 		}
 	}()
 
-	_, err = stmtUser.Exec(projectId)
+	_, err = stmtUser.ExecContext(ctx, projectId)
 	if err != nil {
 		logger.Log.Error("Failed to execute query", zap.Error(err))
 		return err
@@ -456,8 +457,8 @@ func (s *PgStorage) DeleteProject(projectId uint64) error {
 	return nil
 }
 
-func (s *PgStorage) CreateBid(bid models.Bid) (uint64, error) {
-	stmtBid, err := s.exec.Prepare("INSERT INTO Bids (project, user, price, deadline, message) VALUES($1, $2, $3, $4, $5) RETURNING id")
+func (s *PgStorage) CreateBid(ctx context.Context, bid models.Bid) (uint64, error) {
+	stmtBid, err := s.exec.PrepareContext(ctx, "INSERT INTO Bids (project, user, price, deadline, message) VALUES($1, $2, $3, $4, $5) RETURNING id")
 	if err != nil {
 		logger.Log.Error("Failed to prepare query", zap.Error(err))
 		return 0, err
@@ -469,7 +470,7 @@ func (s *PgStorage) CreateBid(bid models.Bid) (uint64, error) {
 		}
 	}()
 
-	row := stmtBid.QueryRow(bid.Id, bid.User, bid.Price, bid.Deadline, bid.Message)
+	row := stmtBid.QueryRowContext(ctx, bid.Id, bid.User, bid.Price, bid.Deadline, bid.Message)
 	if err = row.Err(); err != nil {
 		logger.Log.Error("Failed to execute query", zap.Error(err))
 		return 0, err
@@ -484,9 +485,9 @@ func (s *PgStorage) CreateBid(bid models.Bid) (uint64, error) {
 	return id, nil
 }
 
-func (s *PgStorage) GetBid(id uint64) (models.Bid, error) {
+func (s *PgStorage) GetBid(ctx context.Context, id uint64) (models.Bid, error) {
 	// TODO: set explicit field set and order in query
-	stmtBid, err := s.exec.Prepare("SELECT * FROM Bids WHERE id = $1")
+	stmtBid, err := s.exec.PrepareContext(ctx, "SELECT * FROM Bids WHERE id = $1")
 	if err != nil {
 		logger.Log.Error("Failed to prepare query", zap.Error(err))
 		return models.Bid{}, err
@@ -497,7 +498,7 @@ func (s *PgStorage) GetBid(id uint64) (models.Bid, error) {
 			logger.Log.Error("Failed to close statement", zap.Error(err))
 		}
 	}()
-	rowBid := stmtBid.QueryRow(id)
+	rowBid := stmtBid.QueryRowContext(ctx, id)
 	if err = rowBid.Err(); err != nil {
 		logger.Log.Error("Failed to query project data", zap.Error(err))
 		return models.Bid{}, err
@@ -511,8 +512,8 @@ func (s *PgStorage) GetBid(id uint64) (models.Bid, error) {
 	return res, nil
 }
 
-func (s *PgStorage) GetProjectBids(projectId uint64) ([]models.Bid, error) {
-	stmtBids, err := s.exec.Prepare("SELECT id, project, user, price, deadline, message FROM Bids WHERE project = $1")
+func (s *PgStorage) GetProjectBids(ctx context.Context, projectId uint64) ([]models.Bid, error) {
+	stmtBids, err := s.exec.PrepareContext(ctx, "SELECT id, project, user, price, deadline, message FROM Bids WHERE project = $1")
 	if err != nil {
 		logger.Log.Error("Failed to prepare query", zap.Error(err))
 		return nil, err
@@ -523,7 +524,7 @@ func (s *PgStorage) GetProjectBids(projectId uint64) ([]models.Bid, error) {
 			logger.Log.Error("Failed to close statement", zap.Error(err))
 		}
 	}()
-	rowsBids, err := stmtBids.Query(projectId)
+	rowsBids, err := stmtBids.QueryContext(ctx, projectId)
 	if err != nil {
 		logger.Log.Error("Failed to query Users data", zap.Error(err))
 		return nil, err
@@ -552,8 +553,8 @@ func (s *PgStorage) GetProjectBids(projectId uint64) ([]models.Bid, error) {
 	return res, nil
 }
 
-func (s *PgStorage) UpdateBid(bid models.Bid) error {
-	stmtBid, err := s.exec.Prepare("UPDATE Bids SET project=$1, user=$2, price=$3, deadline = $4, message = $5 WHERE id = $6")
+func (s *PgStorage) UpdateBid(ctx context.Context, bid models.Bid) error {
+	stmtBid, err := s.exec.PrepareContext(ctx, "UPDATE Bids SET project=$1, user=$2, price=$3, deadline = $4, message = $5 WHERE id = $6")
 	if err != nil {
 		logger.Log.Error("Failed to prepare query", zap.Error(err))
 		return err
@@ -565,7 +566,7 @@ func (s *PgStorage) UpdateBid(bid models.Bid) error {
 		}
 	}()
 
-	_, err = stmtBid.Exec(bid.Project, bid.User, bid.Price, bid.Deadline, bid.Message, bid.Id)
+	_, err = stmtBid.ExecContext(ctx, bid.Project, bid.User, bid.Price, bid.Deadline, bid.Message, bid.Id)
 	if err != nil {
 		logger.Log.Error("Failed to execute query", zap.Error(err))
 		return err
@@ -574,8 +575,8 @@ func (s *PgStorage) UpdateBid(bid models.Bid) error {
 	return nil
 }
 
-func (s *PgStorage) DeleteBid(id uint64) error {
-	stmtBid, err := s.exec.Prepare("DELETE FROM Bids WHERE id = $1")
+func (s *PgStorage) DeleteBid(ctx context.Context, id uint64) error {
+	stmtBid, err := s.exec.PrepareContext(ctx, "DELETE FROM Bids WHERE id = $1")
 	if err != nil {
 		logger.Log.Error("Failed to prepare query", zap.Error(err))
 		return err
@@ -587,7 +588,7 @@ func (s *PgStorage) DeleteBid(id uint64) error {
 		}
 	}()
 
-	_, err = stmtBid.Exec(id)
+	_, err = stmtBid.ExecContext(ctx, id)
 	if err != nil {
 		logger.Log.Error("Failed to execute query", zap.Error(err))
 		return err
