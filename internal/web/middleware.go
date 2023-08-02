@@ -169,7 +169,7 @@ func AuthorizationHandle(h http.Handler) http.Handler {
 			return
 		}
 
-		user, err := marketplace.GetUser(address)
+		user, err := marketplace.GetUser(r.Context(), address)
 		if err != nil {
 			logger.Log.Warn("failed to get user from marketplace", zap.Error(err))
 			http.Error(w, "failed to get user info", http.StatusBadGateway)
@@ -182,9 +182,81 @@ func AuthorizationHandle(h http.Handler) http.Handler {
 			return
 		}
 
-		err = marketplace.UpdateUserNonce(user.Id, nonce)
+		err = marketplace.UpdateUserNonce(r.Context(), user.Id, nonce)
 		if err != nil {
 			logger.Log.Error("failed to update user nonce", zap.Error(err))
+		}
+
+		r.Body = io.NopCloser(bytes.NewBuffer(msg))
+		h.ServeHTTP(w, r)
+	})
+}
+
+func RegistrationHandle(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		address := r.Header.Get("TRTG-Address")
+		if len(address) == 0 {
+			logger.Log.Warn("no public key in headers")
+			http.Error(w, "no public key in headers", http.StatusBadRequest)
+			return
+		}
+		nonceStr := r.Header.Get("TRTG-Nonce")
+		if len(nonceStr) == 0 {
+			logger.Log.Warn("no nonce in headers")
+			http.Error(w, "no nonce in headers", http.StatusBadRequest)
+			return
+		}
+		nonce, err := strconv.ParseUint(nonceStr, 10, 64)
+		if err != nil {
+			logger.Log.Warn("invalid nonce", zap.Error(err))
+			http.Error(w, "invalid nonce: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		if nonce != 0 {
+			logger.Log.Warn("invalid nonce", zap.Error(err))
+			http.Error(w, "invalid nonce: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		signatureStr := r.Header.Get("TRTG-Signature")
+		if len(signatureStr) == 0 {
+			logger.Log.Warn("no signature in headers")
+			http.Error(w, "no signature in headers", http.StatusBadRequest)
+			return
+		}
+		signature, err := hex.DecodeString(signatureStr)
+		if err != nil {
+			logger.Log.Warn("invalid signature", zap.Error(err))
+			http.Error(w, "invalid signature: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		msg, err := io.ReadAll(r.Body)
+		if err != nil {
+			logger.Log.Warn("error reading body", zap.Error(err))
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		dataToSign := r.URL.Path + "&" + nonceStr + "&" + string(msg)
+		logger.Log.Info("data to sign", zap.String("data", dataToSign))
+		restoredAddress, err := blockchain.RestoreAddressFromSignature([]byte(dataToSign), signature)
+		if err != nil {
+			logger.Log.Warn("failed to restore address", zap.Error(err))
+			http.Error(w, "invalid signature", http.StatusForbidden)
+			return
+		}
+		if restoredAddress != address {
+			logger.Log.Warn("invalid signature", zap.String("address", address),
+				zap.String("restored", restoredAddress))
+			http.Error(w, "invalid signature", http.StatusForbidden)
+			return
+		}
+
+		_, err = marketplace.GetUser(r.Context(), address)
+		if err == nil {
+			logger.Log.Warn("user already exists")
+			http.Error(w, "user already exists", http.StatusForbidden)
+			return
 		}
 
 		r.Body = io.NopCloser(bytes.NewBuffer(msg))

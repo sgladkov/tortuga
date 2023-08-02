@@ -2,9 +2,12 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"github.com/sgladkov/tortuga/internal/logger"
 	"github.com/sgladkov/tortuga/internal/models"
 	"github.com/sgladkov/tortuga/internal/storage"
+	"go.uber.org/zap"
 	"time"
 )
 
@@ -38,7 +41,11 @@ func (m *Marketplace) GetProject(ctx context.Context, id uint64) (models.Project
 	return m.storage.GetProject(ctx, id)
 }
 
-func (m *Marketplace) AddUser(ctx context.Context, user models.User) error {
+func (m *Marketplace) AddUser(ctx context.Context, caller string, user models.User) error {
+	if caller != user.Id {
+		logger.Log.Warn("forbidden", zap.String("caller", caller), zap.String("required", user.Id))
+		return fmt.Errorf("forbidden for caller %s", caller)
+	}
 	return m.storage.CreateUser(ctx, user)
 }
 
@@ -62,8 +69,12 @@ func (m *Marketplace) UpdateUserNonce(ctx context.Context, id string, nonce uint
 	return m.storage.CommitTx()
 }
 
-func (m *Marketplace) CreateProject(ctx context.Context, title string, description string, tags models.Tags, owner string, deadline time.Duration,
+func (m *Marketplace) CreateProject(ctx context.Context, caller string, title string, description string, tags models.Tags, owner string, deadline time.Duration,
 	price uint64) (uint64, error) {
+	if caller != owner {
+		logger.Log.Warn("forbidden", zap.String("caller", caller), zap.String("required", owner))
+		return 0, fmt.Errorf("forbidden for caller %s", caller)
+	}
 	p := models.Project{
 		Title:       title,
 		Description: description,
@@ -77,7 +88,7 @@ func (m *Marketplace) CreateProject(ctx context.Context, title string, descripti
 	return m.storage.CreateProject(ctx, p)
 }
 
-func (m *Marketplace) UpdateProject(ctx context.Context, projectId uint64, title string, description string, tags models.Tags, deadline time.Duration,
+func (m *Marketplace) UpdateProject(ctx context.Context, caller string, projectId uint64, title string, description string, tags models.Tags, deadline time.Duration,
 	price uint64) error {
 	err := m.storage.BeginTx()
 	if err != nil {
@@ -89,6 +100,17 @@ func (m *Marketplace) UpdateProject(ctx context.Context, projectId uint64, title
 	if err != nil {
 		return err
 	}
+
+	if caller != project.Owner {
+		logger.Log.Warn("forbidden", zap.String("caller", caller), zap.String("required", project.Owner))
+		return fmt.Errorf("forbidden for caller %s", caller)
+	}
+	if project.Status != models.Open {
+		logger.Log.Warn("invalid project status", zap.Uint64("id", projectId),
+			zap.Uint8("status", uint8(project.Status)))
+		return errors.New("forbidden for project in current status")
+	}
+
 	project.Title = title
 	project.Description = description
 	project.Tags = tags
@@ -102,11 +124,37 @@ func (m *Marketplace) UpdateProject(ctx context.Context, projectId uint64, title
 	return m.storage.CommitTx()
 }
 
-func (m *Marketplace) DeleteProject(ctx context.Context, projectId uint64) error {
-	return m.storage.DeleteProject(ctx, projectId)
+func (m *Marketplace) DeleteProject(ctx context.Context, caller string, projectId uint64) error {
+	err := m.storage.BeginTx()
+	if err != nil {
+		return err
+	}
+	defer m.storage.RollbackTx()
+
+	project, err := m.storage.GetProject(ctx, projectId)
+	if err != nil {
+		return err
+	}
+
+	if caller != project.Owner {
+		logger.Log.Warn("forbidden", zap.String("caller", caller), zap.String("required", project.Owner))
+		return fmt.Errorf("forbidden for caller %s", caller)
+	}
+	if project.Status != models.Open {
+		logger.Log.Warn("invalid project status", zap.Uint64("id", projectId),
+			zap.Uint8("status", uint8(project.Status)))
+		return errors.New("forbidden for project in current status")
+	}
+
+	err = m.storage.DeleteProject(ctx, projectId)
+	if err != nil {
+		return err
+	}
+
+	return m.storage.CommitTx()
 }
 
-func (m *Marketplace) CreateBid(ctx context.Context, projectId uint64, fromUser string, price uint64, deadline time.Duration,
+func (m *Marketplace) CreateBid(ctx context.Context, caller string, projectId uint64, fromUser string, price uint64, deadline time.Duration,
 	message string) (uint64, error) {
 	err := m.storage.BeginTx()
 	if err != nil {
@@ -114,7 +162,7 @@ func (m *Marketplace) CreateBid(ctx context.Context, projectId uint64, fromUser 
 	}
 	defer m.storage.RollbackTx()
 
-	_, err = m.storage.GetProject(ctx, projectId)
+	project, err := m.storage.GetProject(ctx, projectId)
 	if err != nil {
 		return 0, fmt.Errorf("no project %v", projectId)
 	}
@@ -122,6 +170,21 @@ func (m *Marketplace) CreateBid(ctx context.Context, projectId uint64, fromUser 
 	if err != nil {
 		return 0, fmt.Errorf("no user %v", fromUser)
 	}
+
+	if caller != fromUser {
+		logger.Log.Warn("forbidden", zap.String("caller", caller), zap.String("required", fromUser))
+		return 0, fmt.Errorf("forbidden for caller %s", caller)
+	}
+	if caller == project.Owner {
+		logger.Log.Warn("bidder is project owner", zap.String("caller", caller))
+		return 0, fmt.Errorf("forbidden for caller %s", caller)
+	}
+	if project.Status != models.Open {
+		logger.Log.Warn("invalid project status", zap.Uint64("id", projectId),
+			zap.Uint8("status", uint8(project.Status)))
+		return 0, errors.New("forbidden for project in current status")
+	}
+
 	bid := models.Bid{
 		Project:  projectId,
 		User:     fromUser,
@@ -149,7 +212,7 @@ func (m *Marketplace) GetProjectBids(ctx context.Context, projectId uint64) ([]m
 	return m.storage.GetProjectBids(ctx, projectId)
 }
 
-func (m *Marketplace) UpdateBid(ctx context.Context, id uint64, price uint64, deadline time.Duration, message string) error {
+func (m *Marketplace) UpdateBid(ctx context.Context, caller string, id uint64, price uint64, deadline time.Duration, message string) error {
 	err := m.storage.BeginTx()
 	if err != nil {
 		return err
@@ -160,6 +223,12 @@ func (m *Marketplace) UpdateBid(ctx context.Context, id uint64, price uint64, de
 	if err != nil {
 		return err
 	}
+
+	if caller != bid.User {
+		logger.Log.Warn("forbidden", zap.String("caller", caller), zap.String("required", bid.User))
+		return fmt.Errorf("forbidden for caller %s", caller)
+	}
+
 	bid.Price = price
 	bid.Deadline = deadline
 	bid.Message = message
@@ -171,11 +240,7 @@ func (m *Marketplace) UpdateBid(ctx context.Context, id uint64, price uint64, de
 	return m.storage.CommitTx()
 }
 
-func (m *Marketplace) DeleteBid(ctx context.Context, id uint64) error {
-	return m.storage.DeleteBid(ctx, id)
-}
-
-func (m *Marketplace) AcceptBid(ctx context.Context, id uint64) error {
+func (m *Marketplace) DeleteBid(ctx context.Context, caller string, id uint64) error {
 	err := m.storage.BeginTx()
 	if err != nil {
 		return err
@@ -186,19 +251,12 @@ func (m *Marketplace) AcceptBid(ctx context.Context, id uint64) error {
 	if err != nil {
 		return err
 	}
-	project, err := m.storage.GetProject(ctx, bid.Project)
-	if err != nil {
-		return err
+
+	if caller != bid.User {
+		logger.Log.Warn("forbidden", zap.String("caller", caller), zap.String("required", bid.User))
+		return fmt.Errorf("forbidden for caller %s", caller)
 	}
-	project.Contractor = bid.User
-	project.Started = time.Now()
-	project.Deadline = bid.Deadline
-	project.Price = bid.Price
-	project.Status = models.InWork
-	err = m.storage.UpdateProject(ctx, project)
-	if err != nil {
-		return err
-	}
+
 	err = m.storage.DeleteBid(ctx, id)
 	if err != nil {
 		return err
@@ -207,7 +265,50 @@ func (m *Marketplace) AcceptBid(ctx context.Context, id uint64) error {
 	return m.storage.CommitTx()
 }
 
-func (m *Marketplace) CancelProject(ctx context.Context, id uint64) error {
+func (m *Marketplace) AcceptBid(ctx context.Context, caller string, id uint64) (uint64, error) {
+	err := m.storage.BeginTx()
+	if err != nil {
+		return 0, err
+	}
+	defer m.storage.RollbackTx()
+
+	bid, err := m.storage.GetBid(ctx, id)
+	if err != nil {
+		return 0, err
+	}
+	project, err := m.storage.GetProject(ctx, bid.Project)
+	if err != nil {
+		return 0, err
+	}
+
+	if caller != bid.User {
+		logger.Log.Warn("forbidden", zap.String("caller", caller), zap.String("required", bid.User))
+		return 0, fmt.Errorf("forbidden for caller %s", caller)
+	}
+	if project.Status != models.Open {
+		logger.Log.Warn("invalid project status", zap.Uint64("id", bid.Project),
+			zap.Uint8("status", uint8(project.Status)))
+		return 0, errors.New("forbidden for project in current status")
+	}
+
+	project.Contractor = bid.User
+	project.Started = time.Now()
+	project.Deadline = bid.Deadline
+	project.Price = bid.Price
+	project.Status = models.InWork
+	err = m.storage.UpdateProject(ctx, project)
+	if err != nil {
+		return 0, err
+	}
+	err = m.storage.DeleteBid(ctx, id)
+	if err != nil {
+		return 0, err
+	}
+
+	return bid.Project, m.storage.CommitTx()
+}
+
+func (m *Marketplace) CancelProject(ctx context.Context, caller string, id uint64) error {
 	err := m.storage.BeginTx()
 	if err != nil {
 		return err
@@ -217,6 +318,12 @@ func (m *Marketplace) CancelProject(ctx context.Context, id uint64) error {
 	project, err := m.storage.GetProject(ctx, id)
 	if err != nil {
 		return err
+	}
+
+	if caller != project.Owner && caller != project.Contractor {
+		logger.Log.Warn("forbidden", zap.String("caller", caller),
+			zap.String("owner", project.Owner), zap.String("contractor", project.Contractor))
+		return fmt.Errorf("forbidden for caller %s", caller)
 	}
 	if project.Status == models.InWork || project.Status == models.InReview {
 		project.Status = models.Canceled
@@ -232,7 +339,7 @@ func (m *Marketplace) CancelProject(ctx context.Context, id uint64) error {
 	return m.storage.CommitTx()
 }
 
-func (m *Marketplace) SetProjectReady(ctx context.Context, id uint64) error {
+func (m *Marketplace) SetProjectReady(ctx context.Context, caller string, id uint64) error {
 	err := m.storage.BeginTx()
 	if err != nil {
 		return err
@@ -242,6 +349,12 @@ func (m *Marketplace) SetProjectReady(ctx context.Context, id uint64) error {
 	project, err := m.storage.GetProject(ctx, id)
 	if err != nil {
 		return err
+	}
+
+	if caller != project.Contractor {
+		logger.Log.Warn("forbidden", zap.String("caller", caller),
+			zap.String("required", project.Contractor))
+		return fmt.Errorf("forbidden for caller %s", caller)
 	}
 	if project.Status == models.InWork {
 		project.Status = models.InReview
@@ -257,7 +370,7 @@ func (m *Marketplace) SetProjectReady(ctx context.Context, id uint64) error {
 	return m.storage.CommitTx()
 }
 
-func (m *Marketplace) AcceptProject(ctx context.Context, id uint64) error {
+func (m *Marketplace) AcceptProject(ctx context.Context, caller string, id uint64) error {
 	err := m.storage.BeginTx()
 	if err != nil {
 		return err
@@ -267,6 +380,11 @@ func (m *Marketplace) AcceptProject(ctx context.Context, id uint64) error {
 	project, err := m.storage.GetProject(ctx, id)
 	if err != nil {
 		return err
+	}
+
+	if caller != project.Owner {
+		logger.Log.Warn("forbidden", zap.String("caller", caller), zap.String("required", project.Owner))
+		return fmt.Errorf("forbidden for caller %s", caller)
 	}
 	if project.Status == models.InReview {
 		project.Status = models.Completed

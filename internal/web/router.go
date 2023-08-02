@@ -32,9 +32,12 @@ func TortugaRouter(m *service.Marketplace, a string) chi.Router {
 		r.Get("/project/{id}/bids", projectBids)
 		r.Get("/bid/{id}", bidInfo)
 	})
+	r.Route("/api/", func(r chi.Router) {
+		r.Use(RegistrationHandle)
+		r.Post("/register", register)
+	})
 	r.Route("/api/private/", func(r chi.Router) {
 		r.Use(AuthorizationHandle)
-		r.Post("/register", register)
 		r.Post("/create_project", createProject)
 		r.Post("/project/{id}/create_bid", createBid)
 		r.Post("/bid/{id}/accept_bid", acceptBid)
