@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+// FixedTime is a helper type to store time.Time in postgres bigint type.
+// It is required because timestamp has different precision and timezone processing is different
 type FixedTime time.Time
 
 // Value implements driver.Valuer
