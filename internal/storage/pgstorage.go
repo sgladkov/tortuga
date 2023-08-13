@@ -7,6 +7,7 @@ import (
 	"github.com/sgladkov/tortuga/internal/logger"
 	"github.com/sgladkov/tortuga/internal/models"
 	"go.uber.org/zap"
+	"time"
 )
 
 type DBTX interface {
@@ -52,7 +53,7 @@ func initDB(db *sql.DB) error {
 		"nickname varchar(256), " +
 		"description text, " +
 		"nonce bigint, " +
-		"registered timestamp, " +
+		"registered bigint, " +
 		"status smallint, " +
 		"tags text, " +
 		"rating double precision, " +
@@ -66,12 +67,12 @@ func initDB(db *sql.DB) error {
 		"title varchar(1024), " +
 		"description text, " +
 		"tags text, " +
-		"created timestamp, " +
+		"created bigint, " +
 		"status smallint, " +
 		"owner varchar(42) REFERENCES Users(id), " +
 		"contractor varchar(42) REFERENCES Users(id), " +
-		"started timestamp, " +
-		"deadline interval, " +
+		"started bigint, " +
+		"deadline bigint, " +
 		"price bigint)")
 	if err != nil {
 		logger.Log.Error("Failed to create exec table", zap.Error(err))
@@ -80,9 +81,9 @@ func initDB(db *sql.DB) error {
 	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS Bids (" +
 		"id bigint PRIMARY KEY generated always as identity, " +
 		"project bigint REFERENCES Projects(id), " +
-		"user varchar(42) REFERENCES Users(id), " +
+		"contractor varchar(42) REFERENCES Users(id), " +
 		"price bigint, " +
-		"deadline interval, " +
+		"deadline bigint, " +
 		"message text)")
 	if err != nil {
 		logger.Log.Error("Failed to create exec table", zap.Error(err))
@@ -91,7 +92,7 @@ func initDB(db *sql.DB) error {
 	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS Rates (" +
 		"author varchar(42) REFERENCES Users(id), " +
 		"project bigint REFERENCES Projects(id), " +
-		"user varchar(42) REFERENCES Users(id), " +
+		"object varchar(42) REFERENCES Users(id), " +
 		"rate smallint, " +
 		"message text, " +
 		"PRIMARY KEY(author, project))")
@@ -164,12 +165,14 @@ func (s *PgStorage) GetUserList(ctx context.Context) ([]models.User, error) {
 	var res []models.User
 	for rowsUsers.Next() {
 		var user models.User
-		err = rowsUsers.Scan(&user.Id, &user.Nickname, &user.Description, &user.Nonce, &user.Registered,
+		var registered models.FixedTime
+		err = rowsUsers.Scan(&user.Id, &user.Nickname, &user.Description, &user.Nonce, &registered,
 			&user.Status, &user.Tags, &user.Rating, &user.Account)
 		if err != nil {
 			logger.Log.Error("Failed to get data from rowset", zap.Error(err))
 			return nil, err
 		}
+		user.Registered = time.Time(registered)
 		res = append(res, user)
 	}
 	err = rowsUsers.Err()
@@ -199,8 +202,10 @@ func (s *PgStorage) GetUser(ctx context.Context, id string) (models.User, error)
 		return models.User{}, err
 	}
 	res := models.User{}
-	err = rowUser.Scan(&res.Id, &res.Nickname, &res.Description, &res.Nonce, &res.Registered, &res.Status,
+	registered := models.FixedTime{}
+	err = rowUser.Scan(&res.Id, &res.Nickname, &res.Description, &res.Nonce, &registered, &res.Status,
 		&res.Tags, &res.Rating, &res.Account)
+	res.Registered = time.Time(registered)
 	if err != nil {
 		logger.Log.Error("Failed to get data from rowset", zap.Error(err))
 		return models.User{}, err
@@ -224,12 +229,22 @@ func (s *PgStorage) GetProjectList(ctx context.Context) ([]models.Project, error
 	var res []models.Project
 	for rowsProjects.Next() {
 		var project models.Project
+		var created models.FixedTime
+		var contractor sql.NullString
+		var started sql.NullInt64
 		err = rowsProjects.Scan(&project.Id, &project.Title, &project.Description, &project.Tags,
-			&project.Created, &project.Status, &project.Owner, &project.Contractor, &project.Started,
+			&created, &project.Status, &project.Owner, &contractor, &started,
 			&project.Deadline, &project.Price)
 		if err != nil {
 			logger.Log.Error("Failed to get data from rowset", zap.Error(err))
 			return nil, err
+		}
+		project.Created = time.Time(created)
+		if contractor.Valid {
+			project.Contractor = contractor.String
+		}
+		if started.Valid {
+			project.Started = time.UnixMilli(started.Int64)
 		}
 		res = append(res, project)
 	}
@@ -268,12 +283,22 @@ func (s *PgStorage) GetUserProjects(ctx context.Context, userId string) ([]model
 	var res []models.Project
 	for rowsProjects.Next() {
 		var project models.Project
+		var created models.FixedTime
+		var contractor sql.NullString
+		var started sql.NullInt64
 		err = rowsProjects.Scan(&project.Id, &project.Title, &project.Description, &project.Tags,
-			&project.Created, &project.Status, &project.Owner, &project.Contractor, &project.Started,
+			&created, &project.Status, &project.Owner, &contractor, &started,
 			&project.Deadline, &project.Price)
 		if err != nil {
 			logger.Log.Error("Failed to get data from rowset", zap.Error(err))
 			return nil, err
+		}
+		project.Created = time.Time(created)
+		if contractor.Valid {
+			project.Contractor = contractor.String
+		}
+		if started.Valid {
+			project.Started = time.UnixMilli(started.Int64)
 		}
 		res = append(res, project)
 	}
@@ -304,11 +329,21 @@ func (s *PgStorage) GetProject(ctx context.Context, id uint64) (models.Project, 
 		return models.Project{}, err
 	}
 	res := models.Project{}
-	err = rowProject.Scan(&res.Id, &res.Title, &res.Description, &res.Tags, &res.Created, &res.Status,
-		&res.Owner, &res.Contractor, &res.Started, &res.Deadline, &res.Price)
+	var contractor sql.NullString
+	var started sql.NullInt64
+	var created models.FixedTime
+	err = rowProject.Scan(&res.Id, &res.Title, &res.Description, &res.Tags, &created, &res.Status,
+		&res.Owner, &contractor, &started, &res.Deadline, &res.Price)
 	if err != nil {
 		logger.Log.Error("Failed to get data from rowset", zap.Error(err))
 		return models.Project{}, err
+	}
+	res.Created = time.Time(created)
+	if contractor.Valid {
+		res.Contractor = contractor.String
+	}
+	if started.Valid {
+		res.Started = time.UnixMilli(started.Int64)
 	}
 	return res, nil
 }
@@ -327,7 +362,8 @@ func (s *PgStorage) CreateUser(ctx context.Context, user models.User) error {
 		}
 	}()
 
-	_, err = stmtUser.ExecContext(ctx, user.Id, user.Nickname, user.Description, user.Nonce, user.Registered,
+	registered := models.FixedTime(user.Registered)
+	_, err = stmtUser.ExecContext(ctx, user.Id, user.Nickname, user.Description, user.Nonce, registered,
 		user.Status, user.Tags, user.Rating, user.Account)
 	if err != nil {
 		logger.Log.Error("Failed to execute query", zap.Error(err))
@@ -351,11 +387,20 @@ func (s *PgStorage) UpdateUser(ctx context.Context, user models.User) error {
 		}
 	}()
 
-	_, err = stmtUser.ExecContext(ctx, user.Nickname, user.Description, user.Nonce, user.Registered, user.Status,
+	registered := models.FixedTime(user.Registered)
+	res, err := stmtUser.ExecContext(ctx, user.Nickname, user.Description, user.Nonce, registered, user.Status,
 		user.Tags, user.Rating, user.Account, user.Id)
 	if err != nil {
 		logger.Log.Error("Failed to execute query", zap.Error(err))
 		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		logger.Log.Error("Failed to get affected rows", zap.Error(err))
+		return err
+	}
+	if affected != 1 {
+		return fmt.Errorf("%d rows affected in update", affected)
 	}
 
 	return nil
@@ -374,7 +419,9 @@ func (s *PgStorage) CreateProject(ctx context.Context, project models.Project) (
 		}
 	}()
 
-	row := stmtUser.QueryRowContext(ctx, project.Title, project.Description, project.Tags, project.Created, project.Status, project.Owner, project.Deadline, project.Price)
+	created := models.FixedTime(project.Created)
+	row := stmtUser.QueryRowContext(ctx, project.Title, project.Description, project.Tags, created,
+		project.Status, project.Owner, project.Deadline, project.Price)
 	if err = row.Err(); err != nil {
 		logger.Log.Error("Failed to execute query", zap.Error(err))
 		return 0, err
@@ -403,11 +450,28 @@ func (s *PgStorage) UpdateProject(ctx context.Context, project models.Project) e
 		}
 	}()
 
-	_, err = stmtUser.ExecContext(ctx, project.Title, project.Description, project.Tags, project.Created, project.Status,
-		project.Owner, project.Contractor, project.Started, project.Deadline, project.Price, project.Id)
+	created := models.FixedTime(project.Created)
+	contractor := sql.NullString{
+		String: project.Contractor,
+		Valid:  project.Contractor != "",
+	}
+	started := sql.NullInt64{
+		Int64: project.Started.UnixMilli(),
+		Valid: project.Started != time.Time{},
+	}
+	res, err := stmtUser.ExecContext(ctx, project.Title, project.Description, project.Tags, created, project.Status,
+		project.Owner, contractor, started, project.Deadline, project.Price, project.Id)
 	if err != nil {
 		logger.Log.Error("Failed to execute query", zap.Error(err))
 		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		logger.Log.Error("Failed to get affected rows", zap.Error(err))
+		return err
+	}
+	if affected != 1 {
+		return fmt.Errorf("%d rows affected in update", affected)
 	}
 
 	return nil
@@ -426,10 +490,18 @@ func (s *PgStorage) DeleteUser(ctx context.Context, id string) error {
 		}
 	}()
 
-	_, err = stmtUser.ExecContext(ctx, id)
+	res, err := stmtUser.ExecContext(ctx, id)
 	if err != nil {
 		logger.Log.Error("Failed to execute query", zap.Error(err))
 		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		logger.Log.Error("Failed to get affected rows", zap.Error(err))
+		return err
+	}
+	if affected != 1 {
+		return fmt.Errorf("%d rows affected in delete", affected)
 	}
 
 	return nil
@@ -447,18 +519,25 @@ func (s *PgStorage) DeleteProject(ctx context.Context, projectId uint64) error {
 			logger.Log.Error("Failed to close statement", zap.Error(err))
 		}
 	}()
-
-	_, err = stmtUser.ExecContext(ctx, projectId)
+	res, err := stmtUser.ExecContext(ctx, projectId)
 	if err != nil {
 		logger.Log.Error("Failed to execute query", zap.Error(err))
 		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		logger.Log.Error("Failed to get affected rows", zap.Error(err))
+		return err
+	}
+	if affected != 1 {
+		return fmt.Errorf("%d rows affected in delete", affected)
 	}
 
 	return nil
 }
 
 func (s *PgStorage) CreateBid(ctx context.Context, bid models.Bid) (uint64, error) {
-	stmtBid, err := s.exec.PrepareContext(ctx, "INSERT INTO Bids (project, user, price, deadline, message) VALUES($1, $2, $3, $4, $5) RETURNING id")
+	stmtBid, err := s.exec.PrepareContext(ctx, "INSERT INTO Bids (project, contractor, price, deadline, message) VALUES($1, $2, $3, $4, $5) RETURNING id")
 	if err != nil {
 		logger.Log.Error("Failed to prepare query", zap.Error(err))
 		return 0, err
@@ -470,7 +549,7 @@ func (s *PgStorage) CreateBid(ctx context.Context, bid models.Bid) (uint64, erro
 		}
 	}()
 
-	row := stmtBid.QueryRowContext(ctx, bid.Id, bid.User, bid.Price, bid.Deadline, bid.Message)
+	row := stmtBid.QueryRowContext(ctx, bid.Project, bid.User, bid.Price, bid.Deadline, bid.Message)
 	if err = row.Err(); err != nil {
 		logger.Log.Error("Failed to execute query", zap.Error(err))
 		return 0, err
@@ -513,7 +592,7 @@ func (s *PgStorage) GetBid(ctx context.Context, id uint64) (models.Bid, error) {
 }
 
 func (s *PgStorage) GetProjectBids(ctx context.Context, projectId uint64) ([]models.Bid, error) {
-	stmtBids, err := s.exec.PrepareContext(ctx, "SELECT id, project, user, price, deadline, message FROM Bids WHERE project = $1")
+	stmtBids, err := s.exec.PrepareContext(ctx, "SELECT id, project, contractor, price, deadline, message FROM Bids WHERE project = $1")
 	if err != nil {
 		logger.Log.Error("Failed to prepare query", zap.Error(err))
 		return nil, err
@@ -554,7 +633,7 @@ func (s *PgStorage) GetProjectBids(ctx context.Context, projectId uint64) ([]mod
 }
 
 func (s *PgStorage) UpdateBid(ctx context.Context, bid models.Bid) error {
-	stmtBid, err := s.exec.PrepareContext(ctx, "UPDATE Bids SET project=$1, user=$2, price=$3, deadline = $4, message = $5 WHERE id = $6")
+	stmtBid, err := s.exec.PrepareContext(ctx, "UPDATE Bids SET project=$1, contractor=$2, price=$3, deadline = $4, message = $5 WHERE id = $6")
 	if err != nil {
 		logger.Log.Error("Failed to prepare query", zap.Error(err))
 		return err

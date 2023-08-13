@@ -161,6 +161,11 @@ func (t *TestStorage) GetProject(_ context.Context, id uint64) (models.Project, 
 func (t *TestStorage) CreateUser(_ context.Context, user models.User) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
+	for _, u := range t.Users {
+		if u.Id == user.Id {
+			return fmt.Errorf("user %s already exists", user.Id)
+		}
+	}
 	t.Users = append(t.Users, user)
 	return nil
 }
@@ -168,9 +173,9 @@ func (t *TestStorage) CreateUser(_ context.Context, user models.User) error {
 func (t *TestStorage) UpdateUser(_ context.Context, user models.User) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
-	for _, u := range t.Users {
+	for idx, u := range t.Users {
 		if u.Id == user.Id {
-			u = user
+			t.Users[idx] = user
 			return nil
 		}
 	}
@@ -180,18 +185,23 @@ func (t *TestStorage) UpdateUser(_ context.Context, user models.User) error {
 func (t *TestStorage) CreateProject(_ context.Context, project models.Project) (uint64, error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
-	project.Id = t.MaxProjectId + 1
-	t.Projects = append(t.Projects, project)
-	t.MaxProjectId++
-	return project.Id, nil
+	for _, u := range t.Users {
+		if u.Id == project.Owner {
+			project.Id = t.MaxProjectId + 1
+			t.Projects = append(t.Projects, project)
+			t.MaxProjectId++
+			return project.Id, nil
+		}
+	}
+	return 0, fmt.Errorf("no user %s", project.Owner)
 }
 
 func (t *TestStorage) UpdateProject(_ context.Context, project models.Project) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
-	for _, p := range t.Projects {
+	for idx, p := range t.Projects {
 		if p.Id == project.Id {
-			p = project
+			t.Projects[idx] = project
 			return nil
 		}
 	}
