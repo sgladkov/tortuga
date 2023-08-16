@@ -37,3 +37,15 @@ func (tags *Tags) Scan(value interface{}) error {
 
 	return nil
 }
+
+func (t Tags) Equal(t2 Tags) bool {
+	if len(t) != len(t2) {
+		return false
+	}
+	for i := range t {
+		if t[i] != t2[i] {
+			return false
+		}
+	}
+	return true
+}

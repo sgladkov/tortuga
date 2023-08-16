@@ -10,18 +10,6 @@ import (
 
 var testStorage Storage
 
-func compareUsers(t *testing.T, u1 models.User, u2 models.User) {
-	require.Equal(t, u1.Id, u2.Id)
-	require.Equal(t, u1.Nickname, u2.Nickname)
-	require.Equal(t, u1.Description, u2.Description)
-	require.Equal(t, u1.Nonce, u2.Nonce)
-	require.Equal(t, u1.Registered.Round(time.Second), u2.Registered.Round(time.Second))
-	require.Equal(t, u1.Status, u2.Status)
-	require.Equal(t, u1.Tags, u2.Tags)
-	require.Equal(t, u1.Rating, u2.Rating)
-	require.Equal(t, u1.Account, u2.Account)
-}
-
 func compareProjects(t *testing.T, p1 models.Project, p2 models.Project) {
 	require.Equal(t, p1.Id, p2.Id)
 	require.Equal(t, p1.Title, p2.Title)
@@ -57,10 +45,10 @@ func testUsers(t *testing.T) {
 	ul, err = testStorage.GetUserList(ctx)
 	require.NoError(t, err)
 	require.Len(t, ul, 1)
-	compareUsers(t, u, ul[0])
+	require.True(t, u.Equal(ul[0]))
 	u2, err := testStorage.GetUser(ctx, u.Id)
 	require.NoError(t, err)
-	compareUsers(t, u, u2)
+	require.True(t, u.Equal(u2))
 	require.Error(t, testStorage.CreateUser(ctx, u))
 	_, err = testStorage.GetUser(ctx, "wrong")
 	require.Error(t, err)
@@ -71,7 +59,7 @@ func testUsers(t *testing.T) {
 	require.NoError(t, testStorage.UpdateUser(ctx, u))
 	u2, err = testStorage.GetUser(ctx, u.Id)
 	require.NoError(t, err)
-	compareUsers(t, u, u2)
+	require.True(t, u.Equal(u2))
 	require.Error(t, testStorage.DeleteUser(ctx, "wrong"))
 	require.NoError(t, testStorage.DeleteUser(ctx, "test"))
 	_, err = testStorage.GetUser(ctx, "test")

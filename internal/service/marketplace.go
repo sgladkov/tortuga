@@ -281,8 +281,8 @@ func (m *Marketplace) AcceptBid(ctx context.Context, caller string, id uint64) (
 		return 0, err
 	}
 
-	if caller != bid.User {
-		logger.Log.Warn("forbidden", zap.String("caller", caller), zap.String("required", bid.User))
+	if caller != project.Owner {
+		logger.Log.Warn("forbidden", zap.String("caller", caller), zap.String("required", project.Owner))
 		return 0, fmt.Errorf("forbidden for caller %s", caller)
 	}
 	if project.Status != models.Open {
