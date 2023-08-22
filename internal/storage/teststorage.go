@@ -15,6 +15,7 @@ type TestStorage struct {
 	Rates        []models.Rate
 	MaxProjectId uint64
 	MaxBidId     uint64
+	MaxRateId    uint64
 	dataCopy     *TestStorage
 }
 
@@ -38,6 +39,16 @@ func maxBidId(bids []models.Bid) uint64 {
 	return res
 }
 
+func maxRateId(rates []models.Rate) uint64 {
+	res := uint64(0)
+	for _, r := range rates {
+		if r.Id > res {
+			res = r.Id
+		}
+	}
+	return res
+}
+
 func NewTestStorage(users []models.User, projects []models.Project, bids []models.Bid, rates []models.Rate) *TestStorage {
 	return &TestStorage{
 		Users:        users,
@@ -46,6 +57,7 @@ func NewTestStorage(users []models.User, projects []models.Project, bids []model
 		Rates:        rates,
 		MaxProjectId: maxProjectId(projects),
 		MaxBidId:     maxBidId(bids),
+		MaxRateId:    maxRateId(rates),
 	}
 }
 
@@ -62,6 +74,7 @@ func (t *TestStorage) BeginTx() error {
 		Rates:        t.Rates,
 		MaxProjectId: t.MaxProjectId,
 		MaxBidId:     t.MaxBidId,
+		MaxRateId:    t.MaxRateId,
 	}
 	return nil
 }
@@ -88,6 +101,7 @@ func (t *TestStorage) RollbackTx() error {
 	t.Rates = t.dataCopy.Rates
 	t.MaxProjectId = t.dataCopy.MaxProjectId
 	t.MaxBidId = t.dataCopy.MaxBidId
+	t.MaxRateId = t.dataCopy.MaxRateId
 	t.dataCopy = nil
 	return nil
 }
@@ -289,6 +303,90 @@ func (t *TestStorage) DeleteBid(_ context.Context, id uint64) error {
 	for idx, b := range t.Bids {
 		if b.Id == id {
 			t.Bids = append(t.Bids[:idx], t.Bids[idx+1:]...)
+			return nil
+		}
+	}
+	return fmt.Errorf("no bid with id %d", id)
+}
+
+func (t *TestStorage) CreateRate(ctx context.Context, rate models.Rate) (uint64, error) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	found := false
+	for _, p := range t.Projects {
+		if p.Id == rate.Project {
+			found = true
+		}
+	}
+	if !found {
+		return 0, fmt.Errorf("no project with id %v", rate.Project)
+	}
+	found = false
+	for _, u := range t.Users {
+		if u.Id == rate.Evaluator {
+			found = true
+		}
+	}
+	if !found {
+		return 0, fmt.Errorf("no user with id %v", rate.Evaluator)
+	}
+	found = false
+	for _, u := range t.Users {
+		if u.Id == rate.Evaluated {
+			found = true
+		}
+	}
+	if !found {
+		return 0, fmt.Errorf("no user with id %v", rate.Evaluated)
+	}
+
+	rate.Id = t.MaxRateId + 1
+	t.Rates = append(t.Rates, rate)
+	t.MaxRateId++
+	return rate.Id, nil
+}
+
+func (t *TestStorage) GetRate(ctx context.Context, id uint64) (models.Rate, error) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	for _, r := range t.Rates {
+		if r.Id == id {
+			return r, nil
+		}
+	}
+	return models.Rate{}, fmt.Errorf("no rate with id %v", id)
+}
+
+func (t *TestStorage) GetEvaluatorRates(ctx context.Context, userId string) ([]models.Rate, error) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	var res []models.Rate
+	for _, r := range t.Rates {
+		if r.Evaluator == userId {
+			res = append(res, r)
+		}
+	}
+	return res, nil
+}
+
+func (t *TestStorage) GetEvaluatedRates(ctx context.Context, userId string) ([]models.Rate, error) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	var res []models.Rate
+	for _, r := range t.Rates {
+		if r.Evaluated == userId {
+			res = append(res, r)
+		}
+	}
+	return res, nil
+}
+
+func (t *TestStorage) DeleteRate(ctx context.Context, id uint64) error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	for idx, r := range t.Rates {
+		if r.Id == id {
+			t.Rates = append(t.Rates[:idx], t.Rates[idx+1:]...)
 			return nil
 		}
 	}

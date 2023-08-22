@@ -90,12 +90,12 @@ func initDB(db *sql.DB) error {
 		return err
 	}
 	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS Rates (" +
-		"author varchar(42) REFERENCES Users(id), " +
+		"id bigint PRIMARY KEY generated always as identity, " +
+		"evaluator varchar(42) REFERENCES Users(id), " +
 		"project bigint REFERENCES Projects(id), " +
-		"object varchar(42) REFERENCES Users(id), " +
+		"evaluated varchar(42) REFERENCES Users(id), " +
 		"rate smallint, " +
-		"message text, " +
-		"PRIMARY KEY(author, project))")
+		"message text)")
 	if err != nil {
 		logger.Log.Error("Failed to create exec table", zap.Error(err))
 		return err
@@ -668,6 +668,166 @@ func (s *PgStorage) DeleteBid(ctx context.Context, id uint64) error {
 	}()
 
 	_, err = stmtBid.ExecContext(ctx, id)
+	if err != nil {
+		logger.Log.Error("Failed to execute query", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+func (s *PgStorage) CreateRate(ctx context.Context, rate models.Rate) (uint64, error) {
+	stmtRate, err := s.exec.PrepareContext(ctx, "INSERT INTO Rates (evaluator, project, evaluated, rate, message) VALUES($1, $2, $3, $4, $5) RETURNING id")
+	if err != nil {
+		logger.Log.Error("Failed to prepare query", zap.Error(err))
+		return 0, err
+	}
+	defer func() {
+		err = stmtRate.Close()
+		if err != nil {
+			logger.Log.Error("Failed to close statement", zap.Error(err))
+		}
+	}()
+
+	row := stmtRate.QueryRowContext(ctx, rate.Evaluator, rate.Project, rate.Evaluated, rate.Rate, rate.Message)
+	if err = row.Err(); err != nil {
+		logger.Log.Error("Failed to execute query", zap.Error(err))
+		return 0, err
+	}
+
+	var id uint64
+	err = row.Scan(&id)
+	if err != nil {
+		logger.Log.Error("Failed to get data from rowset", zap.Error(err))
+		return 0, err
+	}
+	return id, nil
+}
+
+func (s *PgStorage) GetRate(ctx context.Context, id uint64) (models.Rate, error) {
+	// TODO: set explicit field set and order in query
+	stmtRate, err := s.exec.PrepareContext(ctx, "SELECT * FROM Rates WHERE id = $1")
+	if err != nil {
+		logger.Log.Error("Failed to prepare query", zap.Error(err))
+		return models.Rate{}, err
+	}
+	defer func() {
+		err = stmtRate.Close()
+		if err != nil {
+			logger.Log.Error("Failed to close statement", zap.Error(err))
+		}
+	}()
+	rowRate := stmtRate.QueryRowContext(ctx, id)
+	if err = rowRate.Err(); err != nil {
+		logger.Log.Error("Failed to query project data", zap.Error(err))
+		return models.Rate{}, err
+	}
+	res := models.Rate{}
+	err = rowRate.Scan(&res.Id, &res.Evaluator, &res.Project, &res.Evaluated, &res.Rate, &res.Message)
+	if err != nil {
+		logger.Log.Error("Failed to get data from rowset", zap.Error(err))
+		return models.Rate{}, err
+	}
+	return res, nil
+
+}
+
+func (s *PgStorage) GetEvaluatorRates(ctx context.Context, userId string) ([]models.Rate, error) {
+	stmtRates, err := s.exec.PrepareContext(ctx, "SELECT id, evaluator, project, evaluated, rate, message FROM Rates WHERE evaluator = $1")
+	if err != nil {
+		logger.Log.Error("Failed to prepare query", zap.Error(err))
+		return nil, err
+	}
+	defer func() {
+		err = stmtRates.Close()
+		if err != nil {
+			logger.Log.Error("Failed to close statement", zap.Error(err))
+		}
+	}()
+	rowsRates, err := stmtRates.QueryContext(ctx, userId)
+	if err != nil {
+		logger.Log.Error("Failed to query data", zap.Error(err))
+		return nil, err
+	}
+	defer func() {
+		err = rowsRates.Close()
+		if err != nil {
+			logger.Log.Error("Failed to close rowset", zap.Error(err))
+		}
+	}()
+	var res []models.Rate
+	for rowsRates.Next() {
+		var rate models.Rate
+		err = rowsRates.Scan(&rate.Id, &rate.Evaluator, &rate.Project, &rate.Evaluated, &rate.Rate, &rate.Message)
+		if err != nil {
+			logger.Log.Error("Failed to get data from rowset", zap.Error(err))
+			return nil, err
+		}
+		res = append(res, rate)
+	}
+	err = rowsRates.Err()
+	if err != nil {
+		logger.Log.Error("error while iterating rows", zap.Error(err))
+		return nil, err
+	}
+	return res, nil
+}
+
+func (s *PgStorage) GetEvaluatedRates(ctx context.Context, userId string) ([]models.Rate, error) {
+	stmtRates, err := s.exec.PrepareContext(ctx, "SELECT id, evaluator, project, evaluated, rate, message FROM Rates WHERE evaluated = $1")
+	if err != nil {
+		logger.Log.Error("Failed to prepare query", zap.Error(err))
+		return nil, err
+	}
+	defer func() {
+		err = stmtRates.Close()
+		if err != nil {
+			logger.Log.Error("Failed to close statement", zap.Error(err))
+		}
+	}()
+	rowsRates, err := stmtRates.QueryContext(ctx, userId)
+	if err != nil {
+		logger.Log.Error("Failed to query data", zap.Error(err))
+		return nil, err
+	}
+	defer func() {
+		err = rowsRates.Close()
+		if err != nil {
+			logger.Log.Error("Failed to close rowset", zap.Error(err))
+		}
+	}()
+	var res []models.Rate
+	for rowsRates.Next() {
+		var rate models.Rate
+		err = rowsRates.Scan(&rate.Id, &rate.Evaluator, &rate.Project, &rate.Evaluated, &rate.Rate, &rate.Message)
+		if err != nil {
+			logger.Log.Error("Failed to get data from rowset", zap.Error(err))
+			return nil, err
+		}
+		res = append(res, rate)
+	}
+	err = rowsRates.Err()
+	if err != nil {
+		logger.Log.Error("error while iterating rows", zap.Error(err))
+		return nil, err
+	}
+	return res, nil
+}
+
+func (s *PgStorage) DeleteRate(ctx context.Context, id uint64) error {
+	stmtRate, err := s.exec.PrepareContext(ctx, "DELETE FROM Rates WHERE id = $1")
+	if err != nil {
+		logger.Log.Error("Failed to prepare query", zap.Error(err))
+		return err
+	}
+	defer func() {
+		err = stmtRate.Close()
+		if err != nil {
+			logger.Log.Error("Failed to close statement", zap.Error(err))
+		}
+	}()
+
+	_, err = stmtRate.ExecContext(ctx, id)
 	if err != nil {
 		logger.Log.Error("Failed to execute query", zap.Error(err))
 		return err

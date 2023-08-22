@@ -188,6 +188,105 @@ func testBids(t *testing.T) {
 	require.NoError(t, testStorage.DeleteUser(ctx, "test"))
 }
 
+func testRates(t *testing.T) {
+	ctx := context.Background()
+	require.NotNil(t, testStorage)
+	owner := models.User{
+		Id:          "owner",
+		Nickname:    "test",
+		Description: "some text here",
+		Nonce:       0,
+		Registered:  time.Now(),
+		Status:      0,
+		Tags:        models.Tags{"tag1", "tag2"},
+		Rating:      0.0,
+		Account:     0,
+	}
+	require.NoError(t, testStorage.CreateUser(ctx, owner))
+	contractor := models.User{
+		Id:          "contractor",
+		Nickname:    "test",
+		Description: "some text here",
+		Nonce:       0,
+		Registered:  time.Now(),
+		Status:      0,
+		Tags:        models.Tags{"tag1", "tag2"},
+		Rating:      0.0,
+		Account:     0,
+	}
+	require.NoError(t, testStorage.CreateUser(ctx, contractor))
+	p := models.Project{
+		Title:       "test project",
+		Description: "some project description",
+		Tags:        models.Tags{"tag1", "tag2"},
+		Created:     time.Now(),
+		Status:      models.Open,
+		Owner:       "owner",
+		Contractor:  "contractor",
+		Deadline:    time.Hour * 24 * 14,
+		Price:       10000000000,
+	}
+	pid, err := testStorage.CreateProject(ctx, p)
+	require.NoError(t, err)
+	p.Id = pid
+	rl, err := testStorage.GetEvaluatedRates(ctx, "contractor")
+	require.NoError(t, err)
+	require.Len(t, rl, 0)
+	rl, err = testStorage.GetEvaluatedRates(ctx, "owner")
+	require.NoError(t, err)
+	require.Len(t, rl, 0)
+	rl, err = testStorage.GetEvaluatorRates(ctx, "contractor")
+	require.NoError(t, err)
+	require.Len(t, rl, 0)
+	rl, err = testStorage.GetEvaluatorRates(ctx, "owner")
+	require.NoError(t, err)
+	require.Len(t, rl, 0)
+	rate1 := models.Rate{
+		Project:   pid,
+		Evaluator: "owner",
+		Evaluated: "wrong",
+	}
+	_, err = testStorage.CreateRate(ctx, rate1)
+	require.Error(t, err)
+	rate1.Evaluated = "contractor"
+	rate1.Id, err = testStorage.CreateRate(ctx, rate1)
+	require.NoError(t, err)
+	r, err := testStorage.GetRate(ctx, rate1.Id)
+	require.NoError(t, err)
+	require.Equal(t, rate1, r)
+	_, err = testStorage.GetRate(ctx, rate1.Id+1)
+	require.Error(t, err)
+	rate2 := models.Rate{
+		Project:   pid,
+		Evaluator: "contractor",
+		Evaluated: "owner",
+	}
+	rate2.Id, err = testStorage.CreateRate(ctx, rate2)
+	require.NoError(t, err)
+	rl, err = testStorage.GetEvaluatedRates(ctx, "contractor")
+	require.NoError(t, err)
+	require.Len(t, rl, 1)
+	require.Equal(t, rate1, rl[0])
+	rl, err = testStorage.GetEvaluatedRates(ctx, "owner")
+	require.NoError(t, err)
+	require.Len(t, rl, 1)
+	require.Equal(t, rate2, rl[0])
+	rl, err = testStorage.GetEvaluatorRates(ctx, "contractor")
+	require.NoError(t, err)
+	require.Len(t, rl, 1)
+	require.Equal(t, rate2, rl[0])
+	rl, err = testStorage.GetEvaluatorRates(ctx, "owner")
+	require.NoError(t, err)
+	require.Len(t, rl, 1)
+	require.Equal(t, rate1, rl[0])
+
+	require.NoError(t, testStorage.DeleteRate(ctx, rate1.Id))
+	require.NoError(t, testStorage.DeleteRate(ctx, rate2.Id))
+	require.NoError(t, testStorage.DeleteProject(ctx, pid))
+	require.NoError(t, testStorage.DeleteUser(ctx, "owner"))
+	require.NoError(t, testStorage.DeleteUser(ctx, "contractor"))
+}
+
 func testTransactions(t *testing.T) {
 	ctx := context.Background()
 	require.NotNil(t, testStorage)

@@ -19,5 +19,6 @@ func TestPgStorage_test(t *testing.T) {
 	t.Run("Users", testUsers)
 	t.Run("Projects", testProjects)
 	t.Run("Bids", testBids)
+	t.Run("Rates", testRates)
 	t.Run("Transactions", testTransactions)
 }

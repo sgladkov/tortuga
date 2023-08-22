@@ -29,5 +29,11 @@ type Storage interface {
 	UpdateBid(ctx context.Context, bid models.Bid) error
 	DeleteBid(ctx context.Context, id uint64) error
 
+	CreateRate(ctx context.Context, rate models.Rate) (uint64, error)
+	GetRate(ctx context.Context, id uint64) (models.Rate, error)
+	GetEvaluatorRates(ctx context.Context, userId string) ([]models.Rate, error)
+	GetEvaluatedRates(ctx context.Context, userId string) ([]models.Rate, error)
+	DeleteRate(ctx context.Context, id uint64) error
+
 	Close() error
 }
